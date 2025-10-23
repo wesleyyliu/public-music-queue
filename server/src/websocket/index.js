@@ -13,8 +13,23 @@ function initSocketServer(httpServer) {
   io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
 
+    // Broadcast user count to all clients
+    const userCount = io.sockets.sockets.size;
+    console.log('Current user count:', userCount);
+    io.emit('users:count', userCount);
+
+    // Handle ping from client
+    socket.on('ping', (data) => {
+      console.log('Received ping:', data);
+      socket.emit('pong', { message: 'pong from server', timestamp: Date.now() });
+    });
+
     socket.on('disconnect', () => {
       console.log('Client disconnected:', socket.id);
+      // Broadcast updated user count
+      const userCount = io.sockets.sockets.size;
+      console.log('Current user count:', userCount);
+      io.emit('users:count', userCount);
     });
   });
 
