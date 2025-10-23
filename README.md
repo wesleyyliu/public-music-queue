@@ -6,28 +6,37 @@ Music discovery today happens in algorithmic bubbles or private friend groups. T
 
 ```
 public-music-queue/
-├── server/              # Express + Socket.io backend
+├── server/
+│   ├── db/
+│   │   └── schema.sql           # Database schema
 │   ├── src/
-│   │   ├── config/      # Database config
-│   │   ├── controllers/ # HTTP handlers
-│   │   ├── models/      # Database models
-│   │   ├── routes/      # API routes
-│   │   ├── services/    # Business logic
-│   │   └── websocket/   # Socket.io handlers
-│   └── server.js
+│   │   ├── config/
+│   │   │   └── database.js      # PostgreSQL connection pool
+│   │   ├── models/
+│   │   │   ├── Song.js          # Song database model
+│   │   │   └── QueueItem.js     # Queue database model
+│   │   ├── services/
+│   │   │   └── queueService.js  # Queue business logic
+│   │   ├── routes/
+│   │   │   └── index.js         # API routes
+│   │   ├── websocket/
+│   │   │   └── index.js         # Socket.io real-time handlers
+│   │   └── app.js               # Express app setup
+│   ├── server.js                # Entry point
+│   └── DATABASE_SETUP.md        # Database setup guide
 │
-├── client/              # React + Three.js frontend
+├── client/
 │   └── src/
-│       ├── components/  # React components
-│       └── hooks/       # Custom hooks
+│       └── App.jsx              # Main React component with queue UI
 │
-└── shared/              # Shared constants
+└── shared/
     └── constants/
+        └── events.js            # WebSocket event names
 ```
 
 ## Setup
 
-### Backend
+### 1. Backend Dependencies
 ```bash
 cd server
 npm init -y
@@ -35,24 +44,76 @@ npm install express socket.io dotenv cors pg
 npm install --save-dev nodemon
 ```
 
-### Frontend
+### 2. Frontend Dependencies
 ```bash
 cd client
 npm create vite@latest . -- --template react
-npm install socket.io-client three @react-three/fiber @react-three/drei
+npm install socket.io-client
+# Optional for 3D features later:
+# npm install three @react-three/fiber @react-three/drei
 ```
 
-### Environment
+### 3. Database Setup
+
+**Create PostgreSQL database:**
 ```bash
-# Create server/.env
-PORT=3001
-DATABASE_URL=postgresql://user:password@localhost:5432/musicqueue
-CLIENT_URL=http://localhost:5173
-SPOTIFY_CLIENT_ID=your_client_id
-SPOTIFY_CLIENT_SECRET=your_client_secret
+psql postgres
 ```
+
+```sql
+CREATE DATABASE musicqueue;
+\q
+```
+
+**Run migrations:**
+```bash
+cd server
+psql -d musicqueue -f db/schema.sql
+```
+
+**Verify tables:**
+```bash
+psql -d musicqueue -c "\dt"
+```
+
+You should see: `users`, `songs`, `queue_items`
+
+### 4. Environment Variables
+
+Create `server/.env`:
+```bash
+PORT=3001
+DATABASE_URL=postgresql://your_username@localhost:5432/musicqueue
+CLIENT_URL=http://localhost:5173
+```
+
+Replace `your_username` with your PostgreSQL username (usually your system username).
+
+If you have a password:
+```bash
+DATABASE_URL=postgresql://username:password@localhost:5432/musicqueue
+```
+
+### 5. Run the Application
+
+**Terminal 1 - Start backend:**
+```bash
+cd server
+node server.js
+```
+
+**Terminal 2 - Start frontend:**
+```bash
+cd client
+npm run dev
+```
+
+Open `http://localhost:5173` in your browser.
+
+**Test it:** Open multiple browser tabs to see real-time synchronization!
 
 ## Tech Stack
 
 **Backend:** Node.js, Express, Socket.io, PostgreSQL  
-**Frontend:** React, Three.js
+**Frontend:** React, Vite  
+**Real-time:** WebSockets (Socket.io)

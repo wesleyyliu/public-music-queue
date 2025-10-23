@@ -1,6 +1,5 @@
-// In-memory queue (will be replaced with database later)
-let queue = [];
-let nextId = 1;
+const Song = require('../models/Song');
+const QueueItem = require('../models/QueueItem');
 
 // Mock songs for testing
 const mockSongs = [
@@ -12,37 +11,56 @@ const mockSongs = [
   { title: 'Sweet Child O Mine', artist: 'Guns N Roses', duration: 356 },
 ];
 
-function getQueue() {
-  return queue;
-}
-
-function addSong(userId) {
-  // Pick a random mock song
-  const mockSong = mockSongs[Math.floor(Math.random() * mockSongs.length)];
-  
-  const queueItem = {
-    id: nextId++,
-    ...mockSong,
-    addedBy: userId,
-    addedAt: new Date().toISOString(),
-  };
-  
-  queue.push(queueItem);
-  return queueItem;
-}
-
-function removeSong(songId) {
-  const index = queue.findIndex(item => item.id === songId);
-  if (index !== -1) {
-    const removed = queue.splice(index, 1)[0];
-    return removed;
+async function getQueue() {
+  try {
+    return await QueueItem.getAll();
+  } catch (error) {
+    console.error('Error getting queue:', error);
+    return [];
   }
-  return null;
 }
 
-function clearQueue() {
-  queue = [];
-  nextId = 1;
+async function addSong(userId) {
+  try {
+    // Pick a random mock song
+    const mockSong = mockSongs[Math.floor(Math.random() * mockSongs.length)];
+    
+    // Create song in database
+    const song = await Song.create(mockSong.title, mockSong.artist, mockSong.duration);
+    
+    // Add to queue
+    const queueItem = await QueueItem.create(song.id, userId);
+    
+    // Return formatted queue item
+    return {
+      id: queueItem.id,
+      title: mockSong.title,
+      artist: mockSong.artist,
+      duration: mockSong.duration,
+      addedBy: userId,
+      addedAt: queueItem.added_at,
+    };
+  } catch (error) {
+    console.error('Error adding song:', error);
+    throw error;
+  }
+}
+
+async function removeSong(songId) {
+  try {
+    return await QueueItem.remove(songId);
+  } catch (error) {
+    console.error('Error removing song:', error);
+    return null;
+  }
+}
+
+async function clearQueue() {
+  try {
+    await QueueItem.clear();
+  } catch (error) {
+    console.error('Error clearing queue:', error);
+  }
 }
 
 module.exports = {

@@ -11,11 +11,12 @@ function initSocketServer(httpServer) {
     }
   });
 
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     console.log('Client connected:', socket.id);
 
     // Send current queue to new connection
-    socket.emit('queue:updated', queueService.getQueue());
+    const currentQueue = await queueService.getQueue();
+    socket.emit('queue:updated', currentQueue);
 
     // Broadcast user count to all clients
     const userCount = io.sockets.sockets.size;
@@ -23,23 +24,35 @@ function initSocketServer(httpServer) {
     io.emit('users:count', userCount);
 
     // Handle add song to queue
-    socket.on('queue:add', () => {
-      console.log('Adding song from:', socket.id);
-      const newSong = queueService.addSong(socket.id);
-      
-      // Broadcast updated queue to all clients
-      io.emit('queue:updated', queueService.getQueue());
-      console.log('Queue updated:', queueService.getQueue());
+    socket.on('queue:add', async () => {
+      try {
+        console.log('Adding song from:', socket.id);
+        await queueService.addSong(socket.id);
+        
+        // Broadcast updated queue to all clients
+        const updatedQueue = await queueService.getQueue();
+        io.emit('queue:updated', updatedQueue);
+        console.log('Queue updated, length:', updatedQueue.length);
+      } catch (error) {
+        console.error('Error adding song:', error);
+        socket.emit('error', { message: 'Failed to add song' });
+      }
     });
 
     // Handle remove song from queue
-    socket.on('queue:remove', (songId) => {
-      console.log('Removing song:', songId);
-      const removed = queueService.removeSong(songId);
-      
-      if (removed) {
-        // Broadcast updated queue to all clients
-        io.emit('queue:updated', queueService.getQueue());
+    socket.on('queue:remove', async (songId) => {
+      try {
+        console.log('Removing song:', songId);
+        const removed = await queueService.removeSong(songId);
+        
+        if (removed) {
+          // Broadcast updated queue to all clients
+          const updatedQueue = await queueService.getQueue();
+          io.emit('queue:updated', updatedQueue);
+        }
+      } catch (error) {
+        console.error('Error removing song:', error);
+        socket.emit('error', { message: 'Failed to remove song' });
       }
     });
 
