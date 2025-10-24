@@ -7,10 +7,36 @@ function App() {
   const [connected, setConnected] = useState(false)
   const [userCount, setUserCount] = useState(0)
   const [queue, setQueue] = useState([])
+  const [user, setUser] = useState(null)
 
   useEffect(() => {
+    // Check if user just logged in (from OAuth callback)
+    const urlParams = new URLSearchParams(window.location.search);
+    const spotifyId = urlParams.get('spotify_id');
+    const displayName = urlParams.get('display_name');
+    const error = urlParams.get('error');
+
+    if (error) {
+      console.error('Auth error:', error);
+      alert(`Login failed: ${error}`);
+    } else if (spotifyId && displayName) {
+      // Store user info
+      const userData = { spotify_id: spotifyId, display_name: displayName };
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      // Clean URL
+      window.history.replaceState({}, document.title, '/');
+    } else {
+      // Check if user already logged in
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        setUser(JSON.parse(stored));
+      }
+    }
+
     // Connect to server
-    const newSocket = io('http://localhost:3001')
+    const newSocket = io('http://127.0.0.1:3001')
 
     newSocket.on('connect', () => {
       console.log('Connected to server!')
@@ -54,9 +80,54 @@ function App() {
     }
   }
 
+  const handleLogin = () => {
+    window.location.href = 'http://127.0.0.1:3001/api/auth/spotify';
+  }
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('user');
+  }
+
   return (
     <div style={{ padding: '2rem', fontFamily: 'system-ui', maxWidth: '800px', margin: '0 auto' }}>
-      <h1>🎵 Public Music Queue</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1>🎵 Public Music Queue</h1>
+        
+        {user ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <span>👤 {user.display_name}</span>
+            <button 
+              onClick={handleLogout}
+              style={{
+                padding: '0.5rem 1rem',
+                background: '#666',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Logout
+            </button>
+          </div>
+        ) : (
+          <button 
+            onClick={handleLogin}
+            style={{
+              padding: '0.75rem 1.5rem',
+              background: '#1DB954',
+              color: 'white',
+              border: 'none',
+              borderRadius: '20px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            Login with Spotify
+          </button>
+        )}
+      </div>
       
       <div style={{ marginTop: '2rem', padding: '1rem', background: '#f0f0f0', borderRadius: '8px' }}>
         <p>
