@@ -46,6 +46,20 @@ class User {
     return result.rows[0];
   }
 
+  static async updateToken(spotifyId, accessToken, expiresIn) {
+    const expiresAt = new Date(Date.now() + expiresIn * 1000);
+    
+    const result = await pool.query(
+      `UPDATE users 
+       SET access_token = $1, token_expires_at = $2, updated_at = NOW()
+       WHERE spotify_id = $3
+       RETURNING *`,
+      [accessToken, expiresAt, spotifyId]
+    );
+    
+    return result.rows[0];
+  }
+
   static async updateLocation(spotifyId, latitude, longitude) {
     const result = await pool.query(
       `UPDATE users 

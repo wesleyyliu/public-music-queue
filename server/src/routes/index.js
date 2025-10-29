@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authRoutes = require('./auth');
 const userRoutes = require('./users');
+const spotifyRoutes = require('./spotify');
 
 router.get('/', (req, res) => {
   res.json({ message: 'Public Music Queue API' });
@@ -10,5 +11,6 @@ router.get('/', (req, res) => {
 // Mount routes
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
+router.use('/spotify', spotifyRoutes);
 
 module.exports = router;

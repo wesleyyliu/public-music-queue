@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { io } from 'socket.io-client'
 import './App.css'
 import SpotifyPlayer from './SpotifyPlayer'
+import SearchSongs from './SearchSongs'
 
 function App() {
   const [socket, setSocket] = useState(null)
@@ -215,6 +216,13 @@ function App() {
       <div style={{ marginTop: '2rem', fontSize: '0.9rem', color: '#666' }}>
         <p>💡 Open this page in multiple tabs to see real-time synchronization!</p>
       </div>
+
+      {/* Search Songs Section */}
+      {user && (
+        <div style={{ marginTop: '2rem' }}>
+          <SearchSongs />
+        </div>
+      )}
 
       {/* Spotify Player Section */}
       {user && (
