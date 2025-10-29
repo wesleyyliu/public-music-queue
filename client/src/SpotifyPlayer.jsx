@@ -10,6 +10,7 @@ function SpotifyPlayer() {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [tokenError, setTokenError] = useState(null);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
     // Fetch access token from backend
@@ -130,8 +131,7 @@ function SpotifyPlayer() {
         padding: '1.5rem', 
         background: '#f8d7da', 
         border: '1px solid #f5c6cb',
-        borderRadius: '8px',
-        marginTop: '2rem'
+        borderRadius: '8px'
       }}>
         <h3>🎵 Spotify Player</h3>
         <p style={{ color: '#721c24' }}>{tokenError}</p>
@@ -145,8 +145,7 @@ function SpotifyPlayer() {
         padding: '1.5rem', 
         background: '#fff3cd', 
         border: '1px solid #ffc107',
-        borderRadius: '8px',
-        marginTop: '2rem'
+        borderRadius: '8px'
       }}>
         <h3>🎵 Spotify Player</h3>
         <p>Loading player...</p>
@@ -159,7 +158,6 @@ function SpotifyPlayer() {
 
   return (
     <div style={{
-      marginTop: '2rem',
       padding: '1.5rem',
       background: 'linear-gradient(135deg, #1DB954 0%, #191414 100%)',
       borderRadius: '12px',
@@ -256,24 +254,43 @@ function SpotifyPlayer() {
         </button>
       </div>
 
-      <div style={{
-        marginTop: '1.5rem',
-        padding: '1rem',
-        background: 'rgba(0,0,0,0.2)',
-        borderRadius: '8px',
-        fontSize: '0.85rem'
-      }}>
-        <p style={{ margin: '0.5rem 0' }}>
-          <strong>How to use:</strong>
-        </p>
-        <ol style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
-          <li>Open Spotify on your desktop or mobile app</li>
-          <li>Start playing any song</li>
-          <li>Click the "Devices" icon in Spotify</li>
-          <li>Select "Public Music Queue Player"</li>
-          <li>Control playback here or in Spotify!</li>
-        </ol>
+      <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+        <button
+          onClick={() => setShowInstructions(!showInstructions)}
+          style={{
+            padding: '0.5rem 1rem',
+            background: 'rgba(255,255,255,0.1)',
+            color: 'white',
+            border: '1px solid rgba(255,255,255,0.3)',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '0.9rem'
+          }}
+        >
+          ℹ️ {showInstructions ? 'Hide Instructions' : 'How to Use'}
+        </button>
       </div>
+
+      {showInstructions && (
+        <div style={{
+          marginTop: '1rem',
+          padding: '1rem',
+          background: 'rgba(0,0,0,0.2)',
+          borderRadius: '8px',
+          fontSize: '0.85rem'
+        }}>
+          <p style={{ margin: '0.5rem 0' }}>
+            <strong>How to use:</strong>
+          </p>
+          <ol style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
+            <li>Open Spotify on your desktop or mobile app</li>
+            <li>Start playing any song</li>
+            <li>Click the "Devices" icon in Spotify</li>
+            <li>Select "Public Music Queue Player"</li>
+            <li>Control playback here or in Spotify!</li>
+          </ol>
+        </div>
+      )}
     </div>
   );
 }

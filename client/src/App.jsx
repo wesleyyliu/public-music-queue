@@ -193,7 +193,8 @@ function App() {
           display: 'flex',
           flexDirection: 'column',
           gap: '1rem',
-          overflow: 'hidden'
+          overflowY: 'auto',
+          overflowX: 'hidden'
         }}>
           {/* Spotify Player - Top Right */}
           {user && (
