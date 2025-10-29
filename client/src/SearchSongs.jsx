@@ -95,11 +95,11 @@ function SearchSongs() {
   };
 
   return (
-    <div style={{ marginTop: '2rem' }}>
-      <h2>🔍 Search Songs</h2>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <h2 style={{ margin: '0 0 1rem 0' }}>🔍 Search Songs</h2>
       
       {/* Search Input */}
-      <div style={{ marginTop: '1rem' }}>
+      <div style={{ marginBottom: '1rem' }}>
         <input
           type="text"
           value={searchQuery}
@@ -112,7 +112,8 @@ function SearchSongs() {
             border: '2px solid #ddd',
             borderRadius: '8px',
             outline: 'none',
-            transition: 'border-color 0.2s'
+            transition: 'border-color 0.2s',
+            boxSizing: 'border-box'
           }}
           onFocus={(e) => e.target.style.borderColor = '#1DB954'}
           onBlur={(e) => e.target.style.borderColor = '#ddd'}
@@ -142,12 +143,12 @@ function SearchSongs() {
 
       {/* Search Results */}
       {!isLoading && searchResults.length > 0 && (
-        <div style={{ marginTop: '1rem' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <p style={{ color: '#666', marginBottom: '0.5rem' }}>
             Found {searchResults.length} results
           </p>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {searchResults.map((track) => (
               <div
                 key={track.id}

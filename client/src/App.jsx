@@ -108,9 +108,10 @@ function App() {
   }
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'system-ui', maxWidth: '800px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>🎵 Public Music Queue</h1>
+    <div style={{ padding: '1rem', fontFamily: 'system-ui', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h1 style={{ margin: 0 }}>🎵 Public Music Queue</h1>
         
         {user ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -147,8 +148,9 @@ function App() {
         )}
       </div>
       
-      <div style={{ marginTop: '2rem', padding: '1rem', background: '#f0f0f0', borderRadius: '8px' }}>
-        <p>
+      {/* Status Bar */}
+      <div style={{ padding: '0.75rem', background: '#f0f0f0', borderRadius: '8px', marginBottom: '1rem' }}>
+        <p style={{ margin: 0 }}>
           Status: <strong style={{ color: connected ? 'green' : 'red' }}>
             {connected ? '✓ Connected' : '✗ Disconnected'}
           </strong>
@@ -159,118 +161,154 @@ function App() {
         </p>
       </div>
 
-      <div style={{ marginTop: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h2>Queue ({queue.length} songs)</h2>
-          {user && queue.length > 0 && (
-            <button
-              onClick={popToSpotify}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: '#1DB954',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: '1rem'
-              }}
-            >
-              ▶️ Play Next Song
-            </button>
+      {/* Three Column Layout */}
+      <div style={{ display: 'flex', gap: '1rem', flex: 1, overflow: 'hidden' }}>
+        {/* Left Panel - Search (full height) */}
+        <div style={{ 
+          flex: '0 0 350px', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          overflow: 'hidden',
+          background: '#f9f9f9',
+          borderRadius: '8px',
+          padding: '1rem'
+        }}>
+          {user ? (
+            <SearchSongs />
+          ) : (
+            <div style={{ textAlign: 'center', color: '#666', marginTop: '2rem' }}>
+              <p>Login with Spotify to search and add songs</p>
+            </div>
           )}
         </div>
-        {queue.length === 0 ? (
-          <p style={{ color: '#666', fontStyle: 'italic' }}>
-            {user 
-              ? 'No songs in queue. Search for songs below to add them!' 
-              : 'No songs in queue. Login with Spotify to add songs!'}
-          </p>
-        ) : (
-          <div style={{ marginTop: '1rem' }}>
-            {queue.map((song, index) => (
-              <div 
-                key={song.id}
-                style={{
-                  padding: '1rem',
-                  marginBottom: '0.5rem',
-                  background: 'white',
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
-                  {/* Album Art */}
-                  {song.albumArt && (
-                    <img
-                      src={song.albumArt}
-                      alt={song.album || song.title}
-                      style={{
-                        width: '60px',
-                        height: '60px',
-                        borderRadius: '4px',
-                        objectFit: 'cover'
-                      }}
-                    />
-                  )}
-                  
-                  {/* Song Info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                      {index + 1}. {song.title}
-                    </div>
-                    <div style={{ color: '#666', fontSize: '0.9rem' }}>
-                      {song.artist} • {Math.floor(song.duration / 60)}:{String(song.duration % 60).padStart(2, '0')}
-                    </div>
-                    {song.album && (
-                      <div style={{ color: '#999', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                        {song.album}
-                      </div>
-                    )}
-                    <div style={{ color: '#999', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                      Added {new Date(song.addedAt).toLocaleTimeString()}
-                    </div>
-                  </div>
-                </div>
+
+        {/* Middle - Empty space for future use */}
+        <div style={{ flex: 1, minWidth: '350px' }}>
+          {/* Intentionally left blank */}
+        </div>
+
+        {/* Right Panel - Player and Queue */}
+        <div style={{ 
+          flex: '0 0 450px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem',
+          overflow: 'hidden'
+        }}>
+          {/* Spotify Player - Top Right */}
+          {user && (
+            <div style={{ flex: '0 0 auto' }}>
+              <SpotifyPlayer />
+            </div>
+          )}
+
+          {/* Queue - Bottom Right */}
+          <div style={{ 
+            flex: 1,
+            display: 'flex', 
+            flexDirection: 'column', 
+            overflow: 'hidden',
+            background: '#f9f9f9',
+            borderRadius: '8px',
+            padding: '1rem'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 style={{ margin: 0 }}>Queue ({queue.length} songs)</h2>
+              {user && queue.length > 0 && (
                 <button
-                  onClick={() => removeSong(song.id)}
+                  onClick={popToSpotify}
                   style={{
-                    padding: '0.5rem 1rem',
-                    background: '#dc3545',
+                    padding: '0.75rem 1.5rem',
+                    background: '#1DB954',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: '1rem'
                   }}
                 >
-                  Remove
+                  ▶️ Play Next Song
                 </button>
-              </div>
-            ))}
+              )}
+            </div>
+            
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {queue.length === 0 ? (
+                <p style={{ color: '#666', fontStyle: 'italic' }}>
+                  {user 
+                    ? 'No songs in queue. Search for songs on the left to add them!' 
+                    : 'No songs in queue. Login with Spotify to add songs!'}
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {queue.map((song, index) => (
+                    <div 
+                      key={song.id}
+                      style={{
+                        padding: '1rem',
+                        background: 'white',
+                        border: '1px solid #ddd',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+                        {/* Album Art */}
+                        {song.albumArt && (
+                          <img
+                            src={song.albumArt}
+                            alt={song.album || song.title}
+                            style={{
+                              width: '60px',
+                              height: '60px',
+                              borderRadius: '4px',
+                              objectFit: 'cover'
+                            }}
+                          />
+                        )}
+                        
+                        {/* Song Info */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                            {index + 1}. {song.title}
+                          </div>
+                          <div style={{ color: '#666', fontSize: '0.9rem' }}>
+                            {song.artist} • {Math.floor(song.duration / 60)}:{String(song.duration % 60).padStart(2, '0')}
+                          </div>
+                          {song.album && (
+                            <div style={{ color: '#999', fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                              {song.album}
+                            </div>
+                          )}
+                          <div style={{ color: '#999', fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                            Added {new Date(song.addedAt).toLocaleTimeString()}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => removeSong(song.id)}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          background: '#dc3545',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        )}
-      </div>
-
-      <div style={{ marginTop: '2rem', fontSize: '0.9rem', color: '#666' }}>
-        <p>💡 Open this page in multiple tabs to see real-time synchronization!</p>
-      </div>
-
-      {/* Search Songs Section */}
-      {user && (
-        <div style={{ marginTop: '2rem' }}>
-          <SearchSongs />
         </div>
-      )}
-
-      {/* Spotify Player Section */}
-      {user && (
-        <div style={{ marginTop: '2rem' }}>
-          <SpotifyPlayer />
-        </div>
-      )}
+      </div>
     </div>
   )
 }
