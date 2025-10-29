@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const queueService = require('../services/queueService');
+const spotifyService = require('../services/spotifyService');
 const { getIO } = require('../websocket');
 
 // Middleware to check authentication
@@ -42,6 +43,34 @@ router.post('/add', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Add to queue error:', error);
     res.status(500).json({ error: 'Failed to add song to queue', message: error.message });
+  }
+});
+
+// Pop first song from queue and add to Spotify player
+router.post('/pop-to-spotify', requireAuth, async (req, res) => {
+  try {
+    // Get the first song in the queue
+    const firstSong = await queueService.getFirstSong();
+    
+    if (!firstSong) {
+      return res.status(404).json({ error: 'Queue is empty' });
+    }
+
+    // Add the song to Spotify player queue
+    await spotifyService.addToSpotifyQueue(req.session.userId, firstSong.spotifyUri);
+
+    // Remove the song from our queue
+    await queueService.removeSong(firstSong.id);
+
+    // Broadcast updated queue to all connected clients via WebSocket
+    const io = getIO();
+    const updatedQueue = await queueService.getQueue();
+    io.emit('queue:updated', updatedQueue);
+
+    res.json({ success: true, song: firstSong });
+  } catch (error) {
+    console.error('Pop to Spotify error:', error);
+    res.status(500).json({ error: 'Failed to add song to Spotify', message: error.message });
   }
 });
 

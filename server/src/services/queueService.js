@@ -72,10 +72,28 @@ async function clearQueue() {
   }
 }
 
+/**
+ * Get the first song in the queue without removing it
+ * @returns {Promise<Object|null>} The first song in queue or null if empty
+ */
+async function getFirstSong() {
+  try {
+    const queue = await QueueItem.getAll();
+    if (queue.length === 0) {
+      return null;
+    }
+    return queue[0];
+  } catch (error) {
+    console.error('Error getting first song:', error);
+    return null;
+  }
+}
+
 module.exports = {
   getQueue,
   addSpotifySong,
   removeSong,
   clearQueue,
+  getFirstSong,
 };
 

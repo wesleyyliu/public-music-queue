@@ -70,6 +70,27 @@ function App() {
     }
   }
 
+  const popToSpotify = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:3001/api/queue/pop-to-spotify', {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(error.error || 'Failed to add song to Spotify');
+        return;
+      }
+
+      const data = await response.json();
+      console.log('Song added to Spotify:', data.song);
+    } catch (error) {
+      console.error('Error adding to Spotify:', error);
+      alert('Failed to add song to Spotify');
+    }
+  }
+
   const handleLogin = () => {
     window.location.href = 'http://127.0.0.1:3001/api/auth/spotify';
   }
@@ -139,7 +160,26 @@ function App() {
       </div>
 
       <div style={{ marginTop: '2rem' }}>
-        <h2>Queue ({queue.length} songs)</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h2>Queue ({queue.length} songs)</h2>
+          {user && queue.length > 0 && (
+            <button
+              onClick={popToSpotify}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: '#1DB954',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '1rem'
+              }}
+            >
+              ▶️ Play Next Song
+            </button>
+          )}
+        </div>
         {queue.length === 0 ? (
           <p style={{ color: '#666', fontStyle: 'italic' }}>
             {user 

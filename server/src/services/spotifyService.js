@@ -98,8 +98,33 @@ async function searchTracks(userId, query, limit = 20) {
   }));
 }
 
+/**
+ * Add a track to the user's Spotify playback queue
+ * @param {string} userId - The user's Spotify ID
+ * @param {string} trackUri - The Spotify URI of the track to add (e.g., spotify:track:abc123)
+ * @returns {Promise<void>}
+ */
+async function addToSpotifyQueue(userId, trackUri) {
+  const accessToken = await getValidAccessToken(userId);
+
+  const response = await fetch(`https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(trackUri)}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`
+    }
+  });
+
+  console.log('Response:', response);
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to add track to Spotify queue: ${error}`);
+  }
+}
+
 module.exports = {
   getValidAccessToken,
-  searchTracks
+  searchTracks,
+  addToSpotifyQueue
 };
 
