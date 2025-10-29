@@ -83,8 +83,12 @@ const callback = async (req, res) => {
       expires_in
     );
 
-    // Redirect back to client with user info
-    res.redirect(`${CLIENT_URL}?spotify_id=${user.spotify_id}&display_name=${encodeURIComponent(user.display_name || 'User')}`);
+    // Store user info in session (NOT the token)
+    req.session.userId = user.spotify_id;
+    req.session.displayName = user.display_name;
+
+    // Redirect back to client - no sensitive data in URL
+    res.redirect(CLIENT_URL);
 
   } catch (error) {
     console.error('Auth callback error:', error);
@@ -92,8 +96,58 @@ const callback = async (req, res) => {
   }
 };
 
+// Get current user info from session
+const getCurrentUser = (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  res.json({
+    spotify_id: req.session.userId,
+    display_name: req.session.displayName
+  });
+};
+
+// Get access token for authenticated user
+const getAccessToken = async (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  try {
+    const user = await User.findBySpotifyId(req.session.userId);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if token is expired
+    if (new Date() > new Date(user.token_expires_at)) {
+      return res.status(401).json({ error: 'Token expired', expired: true });
+    }
+
+    res.json({ access_token: user.access_token });
+  } catch (error) {
+    console.error('Error fetching access token:', error);
+    res.status(500).json({ error: 'Failed to fetch access token' });
+  }
+};
+
+// Logout
+const logout = (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to logout' });
+    }
+    res.json({ message: 'Logged out successfully' });
+  });
+};
+
 module.exports = {
   login,
-  callback
+  callback,
+  getCurrentUser,
+  getAccessToken,
+  logout
 };
 

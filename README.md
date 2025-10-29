@@ -40,7 +40,7 @@ public-music-queue/
 ```bash
 cd server
 npm init -y
-npm install express socket.io dotenv cors pg
+npm install express socket.io dotenv cors pg express-session
 npm install --save-dev nodemon
 ```
 
@@ -85,11 +85,22 @@ Create `server/.env`:
 PORT=3001
 DATABASE_URL=postgresql://your_username@localhost:5432/musicqueue
 CLIENT_URL=http://localhost:5173
+
+# Spotify OAuth (get from https://developer.spotify.com/dashboard)
+SPOTIFY_CLIENT_ID=your_spotify_client_id
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:3001/api/auth/callback
+
+# Session Secret (generate with command below)
+SESSION_SECRET=your_generated_secret_here
 ```
 
-Replace `your_username` with your PostgreSQL username (usually your system username).
+**Generate a secure session secret:**
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
-If you have a password:
+Replace `your_username` with your PostgreSQL username. If you have a password:
 ```bash
 DATABASE_URL=postgresql://username:password@localhost:5432/musicqueue
 ```
@@ -114,6 +125,7 @@ Open `http://localhost:5173` in your browser.
 
 ## Tech Stack
 
-**Backend:** Node.js, Express, Socket.io, PostgreSQL  
+**Backend:** Node.js, Express, Socket.io, PostgreSQL, express-session  
 **Frontend:** React, Vite  
-**Real-time:** WebSockets (Socket.io)
+**Real-time:** WebSockets (Socket.io)  
+**Auth:** Spotify OAuth 2.0, session-based authentication

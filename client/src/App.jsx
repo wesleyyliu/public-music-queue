@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { io } from 'socket.io-client'
 import './App.css'
+import SpotifyPlayer from './SpotifyPlayer'
 
 function App() {
   const [socket, setSocket] = useState(null)
@@ -10,30 +11,23 @@ function App() {
   const [user, setUser] = useState(null)
 
   useEffect(() => {
-    // Check if user just logged in (from OAuth callback)
-    const urlParams = new URLSearchParams(window.location.search);
-    const spotifyId = urlParams.get('spotify_id');
-    const displayName = urlParams.get('display_name');
-    const error = urlParams.get('error');
+    // Check for session and fetch user info
+    const fetchUser = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:3001/api/auth/me', {
+          credentials: 'include' // Important: send cookies with request
+        });
 
-    if (error) {
-      console.error('Auth error:', error);
-      alert(`Login failed: ${error}`);
-    } else if (spotifyId && displayName) {
-      // Store user info
-      const userData = { spotify_id: spotifyId, display_name: displayName };
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      
-      // Clean URL
-      window.history.replaceState({}, document.title, '/');
-    } else {
-      // Check if user already logged in
-      const stored = localStorage.getItem('user');
-      if (stored) {
-        setUser(JSON.parse(stored));
+        if (response.ok) {
+          const userData = await response.json();
+          setUser(userData);
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
       }
-    }
+    };
+
+    fetchUser();
 
     // Connect to server
     const newSocket = io('http://127.0.0.1:3001')
@@ -84,9 +78,16 @@ function App() {
     window.location.href = 'http://127.0.0.1:3001/api/auth/spotify';
   }
 
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
+  const handleLogout = async () => {
+    try {
+      await fetch('http://127.0.0.1:3001/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   }
 
   return (
@@ -214,6 +215,13 @@ function App() {
       <div style={{ marginTop: '2rem', fontSize: '0.9rem', color: '#666' }}>
         <p>💡 Open this page in multiple tabs to see real-time synchronization!</p>
       </div>
+
+      {/* Spotify Player Section */}
+      {user && (
+        <div style={{ marginTop: '2rem' }}>
+          <SpotifyPlayer />
+        </div>
+      )}
     </div>
   )
 }
