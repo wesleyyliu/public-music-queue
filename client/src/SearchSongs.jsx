@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
+import Toast from './Toast';
 
 function SearchSongs() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [toast, setToast] = useState(null);
   const debounceTimer = useRef(null);
 
   // Debounced search function
@@ -64,6 +66,32 @@ function SearchSongs() {
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const handleAddToQueue = async (track) => {
+    try {
+      const response = await fetch('http://127.0.0.1:3001/api/queue/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ track })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add song to queue');
+      }
+
+      const data = await response.json();
+      console.log('Added to queue:', data);
+      
+      // Show success toast
+      setToast({ message: `Added "${track.name}" to queue!`, type: 'success' });
+    } catch (err) {
+      console.error('Add to queue error:', err);
+      setToast({ message: 'Failed to add song to queue', type: 'error' });
+    }
   };
 
   return (
@@ -215,11 +243,9 @@ function SearchSongs() {
                   )}
                   
                   <button
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      // Add to queue - we'll implement this later
-                      console.log('Add to queue:', track);
-                      alert('Add to queue feature coming soon!');
+                      await handleAddToQueue(track);
                     }}
                     style={{
                       padding: '0.5rem 0.75rem',
@@ -258,6 +284,15 @@ function SearchSongs() {
             Try different keywords or check your spelling
           </p>
         </div>
+      )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );

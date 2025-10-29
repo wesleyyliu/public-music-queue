@@ -8,30 +8,40 @@ Music discovery today happens in algorithmic bubbles or private friend groups. T
 public-music-queue/
 ├── server/
 │   ├── db/
-│   │   └── schema.sql           # Database schema
+│   │   └── schema.sql              # Database schema
 │   ├── src/
 │   │   ├── config/
-│   │   │   └── database.js      # PostgreSQL connection pool
+│   │   │   └── database.js         # PostgreSQL connection pool
 │   │   ├── models/
-│   │   │   ├── Song.js          # Song database model
-│   │   │   └── QueueItem.js     # Queue database model
+│   │   │   ├── Song.js             # Song model (with Spotify metadata)
+│   │   │   ├── QueueItem.js        # Queue model
+│   │   │   └── User.js             # User model
 │   │   ├── services/
-│   │   │   └── queueService.js  # Queue business logic
+│   │   │   ├── queueService.js     # Queue business logic
+│   │   │   └── spotifyService.js   # Spotify API integration
+│   │   ├── controllers/
+│   │   │   └── authController.js   # Spotify OAuth handlers
 │   │   ├── routes/
-│   │   │   └── index.js         # API routes
+│   │   │   ├── auth.js             # Auth endpoints
+│   │   │   ├── spotify.js          # Spotify search endpoint
+│   │   │   ├── queue.js            # Queue REST API
+│   │   │   └── index.js            # Route registration
 │   │   ├── websocket/
-│   │   │   └── index.js         # Socket.io real-time handlers
-│   │   └── app.js               # Express app setup
-│   ├── server.js                # Entry point
-│   └── DATABASE_SETUP.md        # Database setup guide
+│   │   │   └── index.js            # Socket.io real-time handlers
+│   │   └── app.js                  # Express app setup
+│   ├── server.js                   # Entry point
+│   └── DATABASE_SETUP.md           # Database setup guide
 │
 ├── client/
 │   └── src/
-│       └── App.jsx              # Main React component with queue UI
+│       ├── App.jsx                 # Main component with queue display
+│       ├── SearchSongs.jsx         # Search UI component
+│       ├── SpotifyPlayer.jsx       # Spotify web player
+│       └── Toast.jsx               # Toast notification component
 │
 └── shared/
     └── constants/
-        └── events.js            # WebSocket event names
+        └── events.js               # WebSocket event names
 ```
 
 ## Setup

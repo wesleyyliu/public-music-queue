@@ -23,22 +23,6 @@ function initSocketServer(httpServer) {
     console.log('Current user count:', userCount);
     io.emit('users:count', userCount);
 
-    // Handle add song to queue
-    socket.on('queue:add', async () => {
-      try {
-        console.log('Adding song from:', socket.id);
-        await queueService.addSong(socket.id);
-        
-        // Broadcast updated queue to all clients
-        const updatedQueue = await queueService.getQueue();
-        io.emit('queue:updated', updatedQueue);
-        console.log('Queue updated, length:', updatedQueue.length);
-      } catch (error) {
-        console.error('Error adding song:', error);
-        socket.emit('error', { message: 'Failed to add song' });
-      }
-    });
-
     // Handle remove song from queue
     socket.on('queue:remove', async (songId) => {
       try {

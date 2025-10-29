@@ -30,6 +30,7 @@ DATABASE_URL=postgresql://username:password@localhost:5432/musicqueue
 
 ## 3. Run Database Migrations
 
+### For New Database Setup:
 ```bash
 cd server
 psql -d musicqueue -f db/schema.sql

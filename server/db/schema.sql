@@ -19,6 +19,11 @@ CREATE TABLE IF NOT EXISTS songs (
   title VARCHAR(255) NOT NULL,
   artist VARCHAR(255) NOT NULL,
   duration INTEGER NOT NULL,
+  spotify_id VARCHAR(255),
+  album VARCHAR(255),
+  album_art TEXT,
+  spotify_uri VARCHAR(255),
+  preview_url TEXT,
   created_at TIMESTAMP DEFAULT NOW()
 );
 

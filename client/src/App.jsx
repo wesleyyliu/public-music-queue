@@ -63,11 +63,6 @@ function App() {
     }
   }, [])
 
-  const addSong = () => {
-    if (socket) {
-      socket.emit('queue:add')
-    }
-  }
 
   const removeSong = (songId) => {
     if (socket) {
@@ -144,28 +139,12 @@ function App() {
       </div>
 
       <div style={{ marginTop: '2rem' }}>
-        <button 
-          onClick={addSong}
-          disabled={!connected}
-          style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            cursor: connected ? 'pointer' : 'not-allowed',
-            background: connected ? '#28a745' : '#ccc',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px'
-          }}
-        >
-          ➕ Add Random Song
-        </button>
-      </div>
-
-      <div style={{ marginTop: '2rem' }}>
         <h2>Queue ({queue.length} songs)</h2>
         {queue.length === 0 ? (
           <p style={{ color: '#666', fontStyle: 'italic' }}>
-            No songs in queue. Click "Add Random Song" to add one!
+            {user 
+              ? 'No songs in queue. Search for songs below to add them!' 
+              : 'No songs in queue. Login with Spotify to add songs!'}
           </p>
         ) : (
           <div style={{ marginTop: '1rem' }}>
@@ -183,15 +162,37 @@ function App() {
                   alignItems: 'center'
                 }}
               >
-                <div>
-                  <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                    {index + 1}. {song.title}
-                  </div>
-                  <div style={{ color: '#666', fontSize: '0.9rem' }}>
-                    {song.artist} • {Math.floor(song.duration / 60)}:{String(song.duration % 60).padStart(2, '0')}
-                  </div>
-                  <div style={{ color: '#999', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                    Added {new Date(song.addedAt).toLocaleTimeString()}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+                  {/* Album Art */}
+                  {song.albumArt && (
+                    <img
+                      src={song.albumArt}
+                      alt={song.album || song.title}
+                      style={{
+                        width: '60px',
+                        height: '60px',
+                        borderRadius: '4px',
+                        objectFit: 'cover'
+                      }}
+                    />
+                  )}
+                  
+                  {/* Song Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                      {index + 1}. {song.title}
+                    </div>
+                    <div style={{ color: '#666', fontSize: '0.9rem' }}>
+                      {song.artist} • {Math.floor(song.duration / 60)}:{String(song.duration % 60).padStart(2, '0')}
+                    </div>
+                    {song.album && (
+                      <div style={{ color: '#999', fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                        {song.album}
+                      </div>
+                    )}
+                    <div style={{ color: '#999', fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                      Added {new Date(song.addedAt).toLocaleTimeString()}
+                    </div>
                   </div>
                 </div>
                 <button

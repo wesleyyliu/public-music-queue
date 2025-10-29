@@ -17,7 +17,12 @@ class QueueItem {
         qi.added_at as "addedAt",
         s.title,
         s.artist,
-        s.duration
+        s.duration,
+        s.spotify_id as "spotifyId",
+        s.album,
+        s.album_art as "albumArt",
+        s.spotify_uri as "spotifyUri",
+        s.preview_url as "previewUrl"
       FROM queue_items qi
       JOIN songs s ON qi.song_id = s.id
       ORDER BY qi.added_at ASC
