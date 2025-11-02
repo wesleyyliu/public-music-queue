@@ -63,31 +63,17 @@ function App() {
     }
   }, [])
 
+  // Register user with socket when both are ready
+  useEffect(() => {
+    if (socket && user && user.spotify_id) {
+      console.log('Registering user with socket:', user.spotify_id);
+      socket.emit('user:register', user.spotify_id);
+    }
+  }, [socket, user]);
 
   const removeSong = (songId) => {
     if (socket) {
       socket.emit('queue:remove', songId)
-    }
-  }
-
-  const popToSpotify = async () => {
-    try {
-      const response = await fetch('http://127.0.0.1:3001/api/queue/pop-to-spotify', {
-        method: 'POST',
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        alert(error.error || 'Failed to add song to Spotify');
-        return;
-      }
-
-      const data = await response.json();
-      console.log('Song added to Spotify:', data.song);
-    } catch (error) {
-      console.error('Error adding to Spotify:', error);
-      alert('Failed to add song to Spotify');
     }
   }
 
@@ -111,7 +97,7 @@ function App() {
     <div style={{ padding: '1rem', fontFamily: 'system-ui', height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <h1 style={{ margin: 0 }}>🎵 Public Music Queue</h1>
+        <h1 style={{ margin: 0 }}>Q'ed Up</h1>
         
         {user ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -173,13 +159,7 @@ function App() {
           borderRadius: '8px',
           padding: '1rem'
         }}>
-          {user ? (
-            <SearchSongs />
-          ) : (
-            <div style={{ textAlign: 'center', color: '#666', marginTop: '2rem' }}>
-              <p>Login with Spotify to search and add songs</p>
-            </div>
-          )}
+          <SearchSongs user={user} />
         </div>
 
         {/* Middle - Empty space for future use */}
@@ -197,11 +177,9 @@ function App() {
           overflowX: 'hidden'
         }}>
           {/* Spotify Player - Top Right */}
-          {user && (
-            <div style={{ flex: '0 0 auto' }}>
-              <SpotifyPlayer />
-            </div>
-          )}
+          <div style={{ flex: '0 0 auto' }}>
+            <SpotifyPlayer key={user?.spotify_id} socket={socket} user={user} />
+          </div>
 
           {/* Queue - Bottom Right */}
           <div style={{ 
@@ -213,25 +191,8 @@ function App() {
             borderRadius: '8px',
             padding: '1rem'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
               <h2 style={{ margin: 0 }}>Queue ({queue.length} songs)</h2>
-              {user && queue.length > 0 && (
-                <button
-                  onClick={popToSpotify}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    background: '#1DB954',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    fontSize: '1rem'
-                  }}
-                >
-                  ▶️ Play Next Song
-                </button>
-              )}
             </div>
             
             <div style={{ flex: 1, overflowY: 'auto' }}>

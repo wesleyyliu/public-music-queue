@@ -50,12 +50,13 @@ const callback = async (req, res) => {
       })
     });
 
-    const tokenData = await tokenResponse.json();
-
     if (!tokenResponse.ok) {
-      console.error('Token exchange error:', tokenData);
+      const errorText = await tokenResponse.text();
+      console.error('Token exchange error:', tokenResponse.status, errorText);
       return res.redirect(`${CLIENT_URL}?error=token_exchange_failed`);
     }
+
+    const tokenData = await tokenResponse.json();
 
     const { access_token, refresh_token, expires_in } = tokenData;
 
@@ -66,12 +67,13 @@ const callback = async (req, res) => {
       }
     });
 
-    const spotifyUser = await userResponse.json();
-
     if (!userResponse.ok) {
-      console.error('User fetch error:', spotifyUser);
+      const errorText = await userResponse.text();
+      console.error('User fetch error:', userResponse.status, errorText);
       return res.redirect(`${CLIENT_URL}?error=user_fetch_failed`);
     }
+
+    const spotifyUser = await userResponse.json();
 
     // Save or update user in database
     const user = await User.create(

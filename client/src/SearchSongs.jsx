@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import Toast from './Toast';
 
-function SearchSongs() {
+function SearchSongs({ user }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
   const debounceTimer = useRef(null);
+  
+  const isAuthenticated = !!user;
 
   // Debounced search function
   useEffect(() => {
@@ -19,6 +21,7 @@ function SearchSongs() {
     // Don't search if query is empty
     if (!searchQuery.trim()) {
       setSearchResults([]);
+      setError(null);
       return;
     }
 
@@ -33,11 +36,19 @@ function SearchSongs() {
         clearTimeout(debounceTimer.current);
       }
     };
-  }, [searchQuery]);
+  }, [searchQuery, isAuthenticated]);
 
   const performSearch = async (query) => {
     setIsLoading(true);
     setError(null);
+
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      setError('Please login with Spotify to search for songs');
+      setSearchResults([]);
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const response = await fetch(
@@ -69,6 +80,12 @@ function SearchSongs() {
   };
 
   const handleAddToQueue = async (track) => {
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      setToast({ message: 'Please login with Spotify to add songs to queue', type: 'error' });
+      return;
+    }
+
     try {
       const response = await fetch('http://127.0.0.1:3001/api/queue/add', {
         method: 'POST',

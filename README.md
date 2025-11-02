@@ -17,14 +17,17 @@ public-music-queue/
 │   │   │   ├── QueueItem.js        # Queue model
 │   │   │   └── User.js             # User model
 │   │   ├── services/
-│   │   │   ├── queueService.js     # Queue business logic
-│   │   │   └── spotifyService.js   # Spotify API integration
+│   │   │   ├── queueService.js           # Queue business logic
+│   │   │   ├── spotifyService.js         # Spotify API integration
+│   │   │   └── playbackStateManager.js   # Playback state management
 │   │   ├── controllers/
-│   │   │   └── authController.js   # Spotify OAuth handlers
+│   │   │   ├── authController.js   # Spotify OAuth handlers
+│   │   │   └── userController.js   # User-related handlers
 │   │   ├── routes/
 │   │   │   ├── auth.js             # Auth endpoints
 │   │   │   ├── spotify.js          # Spotify search endpoint
 │   │   │   ├── queue.js            # Queue REST API
+│   │   │   ├── users.js            # User endpoints
 │   │   │   └── index.js            # Route registration
 │   │   ├── websocket/
 │   │   │   └── index.js            # Socket.io real-time handlers

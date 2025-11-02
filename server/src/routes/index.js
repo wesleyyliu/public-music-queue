@@ -6,7 +6,7 @@ const spotifyRoutes = require('./spotify');
 const queueRoutes = require('./queue');
 
 router.get('/', (req, res) => {
-  res.json({ message: 'Public Music Queue API' });
+  res.json({ message: 'Q\'ed Up API' });
 });
 
 // Mount routes
