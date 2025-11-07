@@ -1,6 +1,17 @@
-import { useState, useEffect } from 'react';
-
-// Spotify SDK documentation can be found here: https://developer.spotify.com/documentation/web-playback-sdk/tutorials/getting-started
+import { useState, useEffect } from "react";
+import {
+  Heart,
+  ThumbsUp,
+  ThumbsDown,
+  Users,
+  Pause,
+  Play,
+  History,
+  SkipBack,
+  SkipForward,
+  Info,
+} from "lucide-react";
+import { QueueItem } from "./QueueItem";
 
 function SpotifyPlayer({ socket, user }) {
   const [player, setPlayer] = useState(null);
@@ -13,464 +24,304 @@ function SpotifyPlayer({ socket, user }) {
   const [showInstructions, setShowInstructions] = useState(false);
   const [serverPlaybackState, setServerPlaybackState] = useState(null);
   const [hasSynced, setHasSynced] = useState(false);
-  
-  const isAuthenticated = !!user;
 
-  // Listen for playback state updates from server
+  const isAuthenticated = !!user;
+  const userCount = serverPlaybackState?.listeners ?? 1;
+
+  // listen for playback updates
   useEffect(() => {
     if (!socket) return;
-
-    socket.on('playback:state', (state) => {
-      console.log('Received playback state from server:', state);
-      setServerPlaybackState(state);
-    });
-
-    return () => {
-      socket.off('playback:state');
-    };
+    socket.on("playback:state", (state) => setServerPlaybackState(state));
+    return () => socket.off("playback:state");
   }, [socket]);
 
-  // Sync playback function - can be called manually or automatically
+  // sync playback
   const syncPlayback = async () => {
-    if (!deviceId || !accessToken || !serverPlaybackState) {
-      console.log('Cannot sync: missing deviceId, accessToken, or serverPlaybackState');
-      return;
-    }
-
-    console.log('🔄 Syncing playback...');
+    if (!deviceId || !accessToken || !serverPlaybackState) return;
 
     try {
-      // If there's a song currently playing on server, sync to it
       if (serverPlaybackState.currentSong && serverPlaybackState.isPlaying) {
-        console.log('Syncing to server playback state:', serverPlaybackState);
-        
-        // Calculate current position based on when the song started
         const elapsed = Date.now() - serverPlaybackState.startedAt;
         const position_ms = Math.max(0, elapsed);
-
-        // Transfer playback AND start playing in one call
-        // The device_id parameter automatically transfers playback to this device
-        console.log('Starting playback on Web Player at position:', Math.floor(position_ms / 1000), 's');
-        const playResponse = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            uris: [serverPlaybackState.currentSong.spotifyUri],
-            position_ms: position_ms
-          })
-        });
-
-        if (playResponse.ok || playResponse.status === 204) {
-          console.log(`✅ Synced and playing at position: ${Math.floor(position_ms / 1000)}s`);
-          setHasSynced(true);
-        } else {
-          console.error('Failed to sync playback:', await playResponse.text());
-        }
+        await fetch(
+          `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              uris: [serverPlaybackState.currentSong.spotifyUri],
+              position_ms,
+            }),
+          }
+        );
+        setHasSynced(true);
       } else {
-        // No song playing on server, trigger server to start playback
-        console.log('No song playing on server, requesting playback start...');
-        
-        const response = await fetch('http://127.0.0.1:3001/api/queue/pop-to-spotify', {
-          method: 'POST',
-          credentials: 'include'
+        await fetch("http://127.0.0.1:3001/api/queue/pop-to-spotify", {
+          method: "POST",
+          credentials: "include",
         });
-
-        if (response.ok) {
-          console.log('Playback started successfully');
-          setHasSynced(true);
-        } else {
-          console.error('Failed to start playback:', await response.text());
-        }
+        setHasSynced(true);
       }
-    } catch (error) {
-      console.error('Error syncing/starting playback:', error);
+    } catch (err) {
+      console.error("Error syncing playback:", err);
     }
   };
 
-  // Auto-sync when device becomes active
   useEffect(() => {
-    if (!isActive || !deviceId || !accessToken || !serverPlaybackState || hasSynced) return;
-
+    if (
+      !isActive ||
+      !deviceId ||
+      !accessToken ||
+      !serverPlaybackState ||
+      hasSynced
+    )
+      return;
     syncPlayback();
   }, [isActive, deviceId, accessToken, serverPlaybackState, hasSynced]);
 
+  // fetch spotify token
   useEffect(() => {
-    // Only fetch access token if user is authenticated
     if (!isAuthenticated) return;
-    
-    // Fetch access token from backend
     const fetchToken = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:3001/api/auth/token', {
-          credentials: 'include'
+        const response = await fetch("http://127.0.0.1:3001/api/auth/token", {
+          credentials: "include",
         });
-
         if (response.ok) {
           const data = await response.json();
           setAccessToken(data.access_token);
         } else {
           const error = await response.json();
-          if (error.expired) {
-            setTokenError('Your session has expired. Please log in again.');
-          } else {
-            setTokenError('Failed to get access token');
-          }
+          setTokenError(
+            error.expired
+              ? "Your session has expired. Please log in again."
+              : "Failed to get access token"
+          );
         }
-      } catch (error) {
-        console.error('Error fetching token:', error);
-        setTokenError('Failed to connect to server');
+      } catch {
+        setTokenError("Failed to connect to server");
       }
     };
-
     fetchToken();
   }, [isAuthenticated]);
 
+  // initialize spotify sdk
   useEffect(() => {
     if (!accessToken) return;
 
-    // Load Spotify SDK script
-    const script = document.createElement('script');
-    script.src = 'https://sdk.scdn.co/spotify-player.js';
+    const script = document.createElement("script");
+    script.src = "https://sdk.scdn.co/spotify-player.js";
     script.async = true;
     document.body.appendChild(script);
 
-    // Initialize player when SDK is ready
     window.onSpotifyWebPlaybackSDKReady = () => {
       const spotifyPlayer = new window.Spotify.Player({
         name: "Q'ed Up Player",
-        getOAuthToken: cb => { cb(accessToken); },
-        volume: 0.5
+        getOAuthToken: (cb) => cb(accessToken),
+        volume: 0.5,
       });
 
-      // Ready event - player is connected
-      spotifyPlayer.addListener('ready', ({ device_id }) => {
-        console.log('Ready with Device ID', device_id);
+      spotifyPlayer.addListener("ready", ({ device_id }) => {
         setDeviceId(device_id);
         setIsActive(true);
       });
 
-      // Not Ready event - player went offline
-      spotifyPlayer.addListener('not_ready', ({ device_id }) => {
-        console.log('Device ID has gone offline', device_id);
-        setIsActive(false);
-      });
-
-      // Player state changed - just update UI state
-      spotifyPlayer.addListener('player_state_changed', state => {
+      spotifyPlayer.addListener("not_ready", () => setIsActive(false));
+      spotifyPlayer.addListener("player_state_changed", (state) => {
         if (!state) return;
-        
         setCurrentTrack(state.track_window.current_track);
         setIsPaused(state.paused);
       });
 
-      // Error listeners
-      spotifyPlayer.addListener('initialization_error', ({ message }) => {
-        console.error('Initialization Error:', message);
-      });
-
-      spotifyPlayer.addListener('authentication_error', ({ message }) => {
-        console.error('Authentication Error:', message);
-      });
-
-      spotifyPlayer.addListener('account_error', ({ message }) => {
-        console.error('Account Error:', message);
-      });
-
-      spotifyPlayer.addListener('playback_error', ({ message }) => {
-        console.error('Playback Error:', message);
-      });
-
-      // Connect the player
       spotifyPlayer.connect();
       setPlayer(spotifyPlayer);
     };
 
-    return () => {
-      if (player) {
-        player.disconnect();
-      }
-    };
+    return () => player && player.disconnect();
   }, [accessToken]);
 
-  const togglePlay = () => {
-    if (player) {
-      player.togglePlay();
-    }
-  };
+  const togglePlay = () => player?.togglePlay();
+  const skipNext = () => player?.nextTrack();
+  const skipPrevious = () => player?.previousTrack();
 
-  const skipNext = () => {
-    if (player) {
-      player.nextTrack();
-    }
-  };
-
-  const skipPrevious = () => {
-    if (player) {
-      player.previousTrack();
-    }
-  };
-
-  // Show unauthenticated view
+  // ui states
   if (!isAuthenticated) {
     return (
-      <div style={{
-        padding: '1.5rem',
-        background: 'linear-gradient(135deg, #1DB954 0%, #191414 100%)',
-        borderRadius: '12px',
-        color: 'white'
-      }}>
-        <h3 style={{ marginTop: 0 }}>🎵 Now Playing</h3>
-        
-        {serverPlaybackState?.currentSong && serverPlaybackState?.isPlaying ? (
-          <div style={{
-            padding: '1rem',
-            background: 'rgba(0,0,0,0.3)',
-            borderRadius: '8px',
-            marginBottom: '1rem'
-          }}>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-              {serverPlaybackState.currentSong.albumArt && (
-                <img 
-                  src={serverPlaybackState.currentSong.albumArt} 
-                  alt={serverPlaybackState.currentSong.album}
-                  style={{ width: '80px', height: '80px', borderRadius: '4px' }}
-                />
-              )}
-              <div>
-                <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                  {serverPlaybackState.currentSong.title}
-                </div>
-                <div style={{ color: '#b3b3b3', fontSize: '0.9rem' }}>
-                  {serverPlaybackState.currentSong.artist}
-                </div>
-                {serverPlaybackState.currentSong.album && (
-                  <div style={{ color: '#888', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-                    {serverPlaybackState.currentSong.album}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div style={{
-            padding: '2rem 1rem',
-            background: 'rgba(0,0,0,0.3)',
-            borderRadius: '8px',
-            marginBottom: '1rem',
-            textAlign: 'center',
-            color: '#b3b3b3'
-          }}>
-            <p style={{ margin: 0 }}>No song currently playing</p>
-          </div>
-        )}
-
-        <div style={{
-          padding: '1rem',
-          background: 'rgba(255, 255, 255, 0.1)',
-          borderRadius: '8px',
-          textAlign: 'center'
-        }}>
-          <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.9rem' }}>
-            🔒 Login with Spotify to control playback
-          </p>
-        </div>
+      <div className="glass-background p-4 text-center text-gray-300 rounded-xl">
+        🔒 Login with Spotify to control playback
       </div>
     );
   }
 
-  // Authenticated user views
   if (tokenError) {
     return (
-      <div style={{ 
-        padding: '1.5rem', 
-        background: '#f8d7da', 
-        border: '1px solid #f5c6cb',
-        borderRadius: '8px'
-      }}>
-        <h3>🎵 Spotify Player</h3>
-        <p style={{ color: '#721c24' }}>{tokenError}</p>
+      <div className="glass-background text-red-300 border border-red-500/30 rounded-md p-3 text-sm">
+        ⚠️ {tokenError}
       </div>
     );
   }
 
   if (!accessToken) {
     return (
-      <div style={{ 
-        padding: '1.5rem', 
-        background: '#fff3cd', 
-        border: '1px solid #ffc107',
-        borderRadius: '8px'
-      }}>
-        <h3>🎵 Spotify Player</h3>
-        <p>Loading player...</p>
-        <p style={{ fontSize: '0.9rem', color: '#666' }}>
-          Note: You need a Spotify Premium account to use the Web Playback SDK.
-        </p>
+      <div className="glass-background text-gray-300 p-4 rounded-xl text-center">
+        Loading Spotify Player...
       </div>
     );
   }
 
-  return (
-    <div style={{
-      padding: '1.5rem',
-      background: 'linear-gradient(135deg, #1DB954 0%, #191414 100%)',
-      borderRadius: '12px',
-      color: 'white'
-    }}>
-      <h3 style={{ marginTop: 0 }}>🎵 Spotify Player</h3>
-      
-      <div style={{ marginBottom: '1rem' }}>
-        <p style={{ fontSize: '0.9rem', margin: '0.5rem 0' }}>
-          Status: <strong>{isActive ? '✓ Connected' : '⏳ Connecting...'}</strong>
-        </p>
-        {deviceId && (
-          <p style={{ fontSize: '0.8rem', color: '#b3b3b3', margin: '0.5rem 0' }}>
-            Device ID: {deviceId}
-          </p>
-        )}
-      </div>
+  // everything is good/authenticated, so show main player
 
-      {currentTrack && (
-        <div style={{
-          padding: '1rem',
-          background: 'rgba(0,0,0,0.3)',
-          borderRadius: '8px',
-          marginBottom: '1rem'
-        }}>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            {currentTrack.album.images[0] && (
-              <img 
-                src={currentTrack.album.images[0].url} 
-                alt={currentTrack.album.name}
-                style={{ width: '64px', height: '64px', borderRadius: '4px' }}
-              />
-            )}
-            <div>
-              <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                {currentTrack.name}
-              </div>
-              <div style={{ color: '#b3b3b3', fontSize: '0.9rem' }}>
-                {currentTrack.artists.map(artist => artist.name).join(', ')}
-              </div>
-            </div>
+  return (
+    <div className="flex items-center justify-center">
+      <div className="glass-background w-[26rem] rounded-xl p-5 flex flex-col gap-5 shadow-2xl text-white">
+        {/* Top Controls */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 glass-background rounded-md px-4 py-2 text-white font-medium">
+            <Users size={18} />
+            <span>{userCount}</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button className="glass-background px-3 py-2" onClick={togglePlay}>
+              {isPaused ? <Play /> : <Pause />}
+            </button>
+            <button className="glass-background px-3 py-2">
+              <Heart />
+            </button>
+            <button className="glass-background px-3 py-2">
+              <History />
+            </button>
           </div>
         </div>
-      )}
 
-      <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-        <button
-          onClick={skipPrevious}
-          disabled={!isActive}
-          style={{
-            padding: '0.75rem 1.5rem',
-            background: 'rgba(255,255,255,0.1)',
-            color: 'white',
-            border: '1px solid rgba(255,255,255,0.3)',
-            borderRadius: '50px',
-            cursor: isActive ? 'pointer' : 'not-allowed',
-            fontSize: '1.2rem'
-          }}
-        >
-          ⏮️
-        </button>
-        
-        <button
-          onClick={togglePlay}
-          disabled={!isActive}
-          style={{
-            padding: '0.75rem 2rem',
-            background: '#1DB954',
-            color: 'white',
-            border: 'none',
-            borderRadius: '50px',
-            cursor: isActive ? 'pointer' : 'not-allowed',
-            fontSize: '1.2rem',
-            fontWeight: 'bold'
-          }}
-        >
-          {isPaused ? '▶️ Play' : '⏸️ Pause'}
-        </button>
+        {/* Album + Player */}
+        <div className="glass-background py-4 px-6 rounded-lg flex flex-col items-center">
+          {currentTrack ? (
+            <>
+              <div className="relative">
+                <img
+                  src={currentTrack.album.images[0]?.url}
+                  alt={currentTrack.album.name}
+                  className="w-48 h-48 rounded-lg"
+                />
+                <div className="absolute -right-16 top-6 w-40 h-40 rounded-full bg-gray-700 border-8 border-gray-800" />
+              </div>
 
-        <button
-          onClick={skipNext}
-          disabled={!isActive}
-          style={{
-            padding: '0.75rem 1.5rem',
-            background: 'rgba(255,255,255,0.1)',
-            color: 'white',
-            border: '1px solid rgba(255,255,255,0.3)',
-            borderRadius: '50px',
-            cursor: isActive ? 'pointer' : 'not-allowed',
-            fontSize: '1.2rem'
-          }}
-        >
-          ⏭️
-        </button>
-      </div>
+              {/* Progress Bar (placeholder) */}
+              <div className="w-full mt-4">
+                <div className="flex justify-between text-xs text-white">
+                  <span>--:--</span>
+                  <span>--:--</span>
+                </div>
+                <div className="w-full glass-background py-[4px] h-1 rounded-full mt-1">
+                  <div className="bg-pink-500 py-[3px] translate-y-[-3px] rounded-full w-1/2"></div>
+                </div>
+              </div>
 
-      {/* Resync Button */}
-      <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-        <button
-          onClick={syncPlayback}
-          disabled={!isActive || !serverPlaybackState}
-          style={{
-            padding: '0.5rem 1rem',
-            background: serverPlaybackState?.isPlaying ? 'rgba(29, 185, 84, 0.2)' : 'rgba(255,255,255,0.1)',
-            color: 'white',
-            border: '1px solid rgba(255,255,255,0.3)',
-            borderRadius: '8px',
-            cursor: (isActive && serverPlaybackState) ? 'pointer' : 'not-allowed',
-            fontSize: '0.9rem',
-            opacity: (isActive && serverPlaybackState) ? 1 : 0.5
-          }}
-        >
-          🔄 Resync Playback
-        </button>
-      </div>
+              <p className="text-sm w-full text-left my-3">Now Playing:</p>
 
-      <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-        <button
-          onClick={() => setShowInstructions(!showInstructions)}
-          style={{
-            padding: '0.5rem 1rem',
-            background: 'rgba(255,255,255,0.1)',
-            color: 'white',
-            border: '1px solid rgba(255,255,255,0.3)',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '0.9rem'
-          }}
-        >
-          ℹ️ {showInstructions ? 'Hide Instructions' : 'How to Use'}
-        </button>
-      </div>
+              {/* Song Info */}
+              <div className="text-center flex justify-between items-center w-full">
+                <div className="flex flex-col flex-start text-left">
+                  <h2 className="text-xl font-semibold">{currentTrack.name}</h2>
+                  <p className="text-sm">
+                    {currentTrack.artists
+                      .map((artist) => artist.name)
+                      .join(", ")}
+                  </p>
+                </div>
 
-      {showInstructions && (
-        <div style={{
-          marginTop: '1rem',
-          padding: '1rem',
-          background: 'rgba(0,0,0,0.2)',
-          borderRadius: '8px',
-          fontSize: '0.85rem'
-        }}>
-          <p style={{ margin: '0.5rem 0' }}>
-            <strong>How to use:</strong>
-          </p>
-          <ol style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
-            <li>Open Spotify on your desktop or mobile app</li>
-            <li>Start playing any song</li>
-            <li>Click the "Devices" icon in Spotify</li>
-            <li>Select "Q'ed Up Player"</li>
-            <li>Control playback here or in Spotify!</li>
-          </ol>
+                <div className="flex flex-row justify-center items-center gap-6 font-medium">
+                  <div className="flex flex-col items-center gap-2">
+                    <ThumbsUp size={28} /> <span>250</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-2">
+                    <ThumbsDown size={28} /> <span>54</span>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-gray-400 text-sm py-8">
+              No song currently playing
+            </p>
+          )}
         </div>
-      )}
+
+        {/* Connection + Controls Section */}
+        <div className="flex flex-col items-center gap-3 glass-background p-3 rounded-md">
+          <p className="text-sm text-gray-300">
+            Status:{" "}
+            <span className="font-medium">
+              {isActive ? "✓ Connected" : "⏳ Connecting..."}
+            </span>
+          </p>
+
+          <div className="flex gap-4">
+            <button
+              onClick={skipPrevious}
+              className="glass-background p-2 rounded-md"
+            >
+              <SkipBack />
+            </button>
+            <button
+              onClick={togglePlay}
+              className="bg-[#1DB954] hover:bg-[#1ed760] text-white px-4 py-2 rounded-md font-semibold flex items-center gap-1"
+            >
+              {isPaused ? <Play size={16} /> : <Pause size={16} />}
+              {isPaused ? "Play" : "Pause"}
+            </button>
+            <button
+              onClick={skipNext}
+              className="glass-background p-2 rounded-md"
+            >
+              <SkipForward />
+            </button>
+          </div>
+
+          <button
+            onClick={syncPlayback}
+            className="text-sm glass-background px-3 py-1 rounded-md hover:bg-white/10"
+          >
+            🔄 Resync Playback
+          </button>
+
+          <button
+            onClick={() => setShowInstructions(!showInstructions)}
+            className="text-sm glass-background px-3 py-1 rounded-md flex items-center gap-1 hover:bg-white/10"
+          >
+            <Info size={14} />
+            {showInstructions ? "Hide Instructions" : "How to Use"}
+          </button>
+
+          {showInstructions && (
+            <div className="text-xs text-gray-300 mt-2 text-left w-full">
+              <ol className="list-decimal list-inside space-y-1">
+                <li>Open Spotify on desktop or mobile</li>
+                <li>Start playing a song</li>
+                <li>Click the “Devices” icon</li>
+                <li>Select “Q’ed Up Player”</li>
+                <li>Control playback here or in Spotify!</li>
+              </ol>
+            </div>
+          )}
+        </div>
+
+        {/* Queue Section */}
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Queue</h3>
+          <div className="space-y-3">
+            <QueueItem title="What Do I Do" artist="SZA" upNext />
+            <QueueItem title="Everytime" artist="Ariana Grande" />
+            <QueueItem title="Cocky AF" artist="Megan Thee Stallion" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
 export default SpotifyPlayer;
-

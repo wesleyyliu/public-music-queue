@@ -1,50 +1,40 @@
-import { useState, useEffect, useRef } from 'react';
-import Toast from './Toast';
+import { useState, useEffect, useRef } from "react";
+import { Search } from "lucide-react";
+import Toast from "./Toast";
 
 function SearchSongs({ user }) {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
   const debounceTimer = useRef(null);
-  
+
   const isAuthenticated = !!user;
 
-  // Debounced search function
+  // Debounced search logic
   useEffect(() => {
-    // Clear previous timer
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
 
-    // Don't search if query is empty
     if (!searchQuery.trim()) {
       setSearchResults([]);
       setError(null);
       return;
     }
 
-    // Set a new timer
     debounceTimer.current = setTimeout(() => {
       performSearch(searchQuery);
-    }, 500); // Wait 500ms after user stops typing
+    }, 500);
 
-    // Cleanup
-    return () => {
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
-    };
+    return () => clearTimeout(debounceTimer.current);
   }, [searchQuery, isAuthenticated]);
 
   const performSearch = async (query) => {
     setIsLoading(true);
     setError(null);
 
-    // Check if user is authenticated
     if (!isAuthenticated) {
-      setError('Please login with Spotify to search for songs');
+      setError("Please login with Spotify to search for songs");
       setSearchResults([]);
       setIsLoading(false);
       return;
@@ -52,20 +42,18 @@ function SearchSongs({ user }) {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:3001/api/spotify/search?q=${encodeURIComponent(query)}&limit=10`,
-        {
-          credentials: 'include'
-        }
+        `http://127.0.0.1:3001/api/spotify/search?q=${encodeURIComponent(
+          query
+        )}&limit=10`,
+        { credentials: "include" }
       );
 
-      if (!response.ok) {
-        throw new Error('Failed to search songs');
-      }
+      if (!response.ok) throw new Error("Failed to search songs");
 
       const data = await response.json();
-      setSearchResults(data.tracks);
+      setSearchResults(data.tracks || []);
     } catch (err) {
-      console.error('Search error:', err);
+      console.error("Search error:", err);
       setError(err.message);
       setSearchResults([]);
     } finally {
@@ -76,235 +64,133 @@ function SearchSongs({ user }) {
   const formatDuration = (ms) => {
     const minutes = Math.floor(ms / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
   const handleAddToQueue = async (track) => {
-    // Check if user is authenticated
     if (!isAuthenticated) {
-      setToast({ message: 'Please login with Spotify to add songs to queue', type: 'error' });
+      setToast({
+        message: "Please login with Spotify to add songs to queue",
+        type: "error",
+      });
       return;
     }
 
     try {
-      const response = await fetch('http://127.0.0.1:3001/api/queue/add', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({ track })
+      const response = await fetch("http://127.0.0.1:3001/api/queue/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ track }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to add song to queue');
-      }
+      if (!response.ok) throw new Error("Failed to add song to queue");
 
       const data = await response.json();
-      console.log('Added to queue:', data);
-      
-      // Show success toast
-      setToast({ message: `Added "${track.name}" to queue!`, type: 'success' });
+      console.log("Added to queue:", data);
+
+      setToast({ message: `Added "${track.name}" to queue!`, type: "success" });
     } catch (err) {
-      console.error('Add to queue error:', err);
-      setToast({ message: 'Failed to add song to queue', type: 'error' });
+      console.error("Add to queue error:", err);
+      setToast({ message: "Failed to add song to queue", type: "error" });
     }
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <h2 style={{ margin: '0 0 1rem 0' }}>🔍 Search Songs</h2>
-      
-      {/* Search Input */}
-      <div style={{ marginBottom: '1rem' }}>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-2 glass-background rounded-md px-3 py-2 w-full max-w-md text-gray-300">
+        <Search size={16} className="text-gray-400" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search for songs, artists, or albums..."
-          style={{
-            width: '100%',
-            padding: '0.75rem',
-            fontSize: '1rem',
-            border: '2px solid #ddd',
-            borderRadius: '8px',
-            outline: 'none',
-            transition: 'border-color 0.2s',
-            boxSizing: 'border-box'
-          }}
-          onFocus={(e) => e.target.style.borderColor = '#1DB954'}
-          onBlur={(e) => e.target.style.borderColor = '#ddd'}
+          placeholder="Search songs, albums, artists"
+          className="bg-transparent outline-none text-sm w-full placeholder-gray-400"
         />
       </div>
 
-      {/* Loading State */}
+      {/* Loading */}
       {isLoading && (
-        <div style={{ marginTop: '1rem', textAlign: 'center', color: '#666' }}>
-          <p>🔄 Searching...</p>
-        </div>
+        <p className="text-gray-400 absolute top-12 mt-2 text-sm animate-pulse">
+          Searching...
+        </p>
       )}
 
-      {/* Error State */}
+      {/* Error */}
       {error && (
-        <div style={{
-          marginTop: '1rem',
-          padding: '1rem',
-          background: '#fee',
-          border: '1px solid #fcc',
-          borderRadius: '8px',
-          color: '#c33'
-        }}>
-          <p>⚠️ {error}</p>
+        <div className="glass-background absolute top-12 mt-2 text-red-300 border border-red-500/20 rounded-md p-3 text-sm">
+          ⚠️ {error}
         </div>
       )}
 
-      {/* Search Results */}
+      {/* Results */}
       {!isLoading && searchResults.length > 0 && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <p style={{ color: '#666', marginBottom: '0.5rem' }}>
-            Found {searchResults.length} results
-          </p>
-          
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {searchResults.map((track) => (
-              <div
-                key={track.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '0.75rem',
-                  background: 'white',
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  transition: 'all 0.2s',
-                  cursor: 'pointer'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = '#1DB954';
-                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = '#ddd';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-              >
-                {/* Album Art */}
-                {track.albumArt && (
-                  <img
-                    src={track.albumArt}
-                    alt={track.album}
-                    style={{
-                      width: '60px',
-                      height: '60px',
-                      borderRadius: '4px',
-                      objectFit: 'cover',
-                      marginRight: '1rem'
+        <div className="absolute top-12 flex flex-col gap-2 mt-2 overflow-y-auto max-h-[60vh] max-w-[30vw]">
+          {searchResults.map((track) => (
+            <div
+              key={track.id}
+              className="flex items-center justify-between glass-background rounded-md p-2 hover:bg-white/10 transition cursor-pointer"
+            >
+              {/* Album Art */}
+              {track.albumArt && (
+                <img
+                  src={track.albumArt}
+                  alt={track.album}
+                  className="w-12 h-12 rounded-md object-cover"
+                />
+              )}
+
+              {/* Song Info */}
+              <div className="flex-1 ml-3 overflow-hidden">
+                <p className="text-white text-sm font-medium truncate">
+                  {track.name}
+                </p>
+                <p className="text-gray-400 text-xs truncate">{track.artist}</p>
+                <p className="text-gray-500 text-xs">
+                  {track.album} • {formatDuration(track.duration_ms)}
+                </p>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-2">
+                {track.preview_url && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.open(track.preview_url, "_blank");
                     }}
-                  />
+                    className="text-xs bg-gray-700 hover:bg-gray-600 text-white rounded-md px-2 py-1"
+                  >
+                    🎵 Preview
+                  </button>
                 )}
 
-                {/* Song Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    fontWeight: 'bold',
-                    fontSize: '1rem',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {track.name}
-                  </div>
-                  <div style={{
-                    color: '#666',
-                    fontSize: '0.9rem',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    marginTop: '0.25rem'
-                  }}>
-                    {track.artist}
-                  </div>
-                  <div style={{
-                    color: '#999',
-                    fontSize: '0.8rem',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    marginTop: '0.25rem'
-                  }}>
-                    {track.album} • {formatDuration(track.duration_ms)}
-                  </div>
-                </div>
-
-                {/* Action Buttons (placeholder for now) */}
-                <div style={{ display: 'flex', gap: '0.5rem', marginLeft: '1rem' }}>
-                  {track.preview_url && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Play preview - we'll implement this later
-                        window.open(track.preview_url, '_blank');
-                      }}
-                      style={{
-                        padding: '0.5rem 0.75rem',
-                        background: '#f0f0f0',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '0.9rem'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = '#e0e0e0'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = '#f0f0f0'}
-                    >
-                      🎵 Preview
-                    </button>
-                  )}
-                  
-                  <button
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      await handleAddToQueue(track);
-                    }}
-                    style={{
-                      padding: '0.5rem 0.75rem',
-                      background: '#1DB954',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                      fontWeight: 'bold'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#1ed760'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = '#1DB954'}
-                  >
-                    ➕ Add
-                  </button>
-                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddToQueue(track);
+                  }}
+                  className="text-xs bg-[#1DB954] hover:bg-[#1ed760] text-white rounded-md px-2 py-1"
+                >
+                  ➕ Add
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* No Results State */}
-      {!isLoading && searchQuery.trim() && searchResults.length === 0 && !error && (
-        <div style={{
-          marginTop: '1rem',
-          padding: '2rem',
-          textAlign: 'center',
-          color: '#666',
-          background: '#f9f9f9',
-          borderRadius: '8px'
-        }}>
-          <p>No results found for "{searchQuery}"</p>
-          <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
-            Try different keywords or check your spelling
+      {/* No Results */}
+      {!isLoading &&
+        searchQuery.trim() &&
+        searchResults.length === 0 &&
+        !error && (
+          <p className="absolute top-12 mt-2 text-gray-400 text-sm">
+            No results for "{searchQuery}"
           </p>
-        </div>
-      )}
+        )}
 
-      {/* Toast Notification */}
+      {/* Toast */}
       {toast && (
         <Toast
           message={toast.message}
@@ -317,4 +203,3 @@ function SearchSongs({ user }) {
 }
 
 export default SearchSongs;
-
