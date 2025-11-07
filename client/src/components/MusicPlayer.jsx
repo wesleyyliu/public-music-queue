@@ -24,48 +24,58 @@ function SpotifyPlayer({
   const [player, setPlayer] = useState(null);
   const [deviceId, setDeviceId] = useState(null);
   const [isPaused, setIsPaused] = useState(true);
+  const [isActive, setIsActive] = useState(false);
   const [currentTrack, setCurrentTrack] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [tokenError, setTokenError] = useState(null);
   const [showInstructions, setShowInstructions] = useState(false);
   const [serverPlaybackState, setServerPlaybackState] = useState(null);
+  const [hasSynced, setHasSynced] = useState(false);
 
   const isAuthenticated = !!user;
 
-  // Listen for playback updates
+  // Listen for playback state updates from server
   useEffect(() => {
     if (!socket) return;
-    socket.on("playback:state", (state) => setServerPlaybackState(state));
-    return () => socket.off("playback:state");
+
+    socket.on("playback:state", (state) => {
+      console.log("Received playback state from server:", state);
+      setServerPlaybackState(state);
+    });
+
+    return () => {
+      socket.off("playback:state");
+    };
   }, [socket]);
 
-  // Fetch queue updates from server
-  const fetchQueue = async () => {
-    try {
-      const res = await fetch("http://127.0.0.1:3001/api/queue", {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setQueue(data.queue || []);
-      }
-    } catch (err) {
-      console.error("Error fetching queue:", err);
-    }
-  };
-
-  useEffect(() => {
-    if (isAuthenticated) fetchQueue();
-  }, [isAuthenticated]);
-
-  // Sync playback logic
+  // Sync playback function - can be called manually or automatically
   const syncPlayback = async () => {
-    if (!deviceId || !accessToken || !serverPlaybackState) return;
+    if (!deviceId || !accessToken || !serverPlaybackState) {
+      console.log(
+        "Cannot sync: missing deviceId, accessToken, or serverPlaybackState"
+      );
+      return;
+    }
+
+    console.log("🔄 Syncing playback...");
+
     try {
+      // If there's a song currently playing on server, sync to it
       if (serverPlaybackState.currentSong && serverPlaybackState.isPlaying) {
+        console.log("Syncing to server playback state:", serverPlaybackState);
+
+        // Calculate current position based on when the song started
         const elapsed = Date.now() - serverPlaybackState.startedAt;
         const position_ms = Math.max(0, elapsed);
-        await fetch(
+
+        // Transfer playback AND start playing in one call
+        // The device_id parameter automatically transfers playback to this device
+        console.log(
+          "Starting playback on Web Player at position:",
+          Math.floor(position_ms / 1000),
+          "s"
+        );
+        const playResponse = await fetch(
           `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
           {
             method: "PUT",
@@ -75,85 +85,176 @@ function SpotifyPlayer({
             },
             body: JSON.stringify({
               uris: [serverPlaybackState.currentSong.spotifyUri],
-              position_ms,
+              position_ms: position_ms,
             }),
           }
         );
+
+        if (playResponse.ok || playResponse.status === 204) {
+          console.log(
+            `✅ Synced and playing at position: ${Math.floor(
+              position_ms / 1000
+            )}s`
+          );
+          setHasSynced(true);
+        } else {
+          console.error("Failed to sync playback:", await playResponse.text());
+        }
       } else {
-        await fetch("http://127.0.0.1:3001/api/queue/pop-to-spotify", {
-          method: "POST",
-          credentials: "include",
-        });
+        // No song playing on server, trigger server to start playback
+        console.log("No song playing on server, requesting playback start...");
+
+        const response = await fetch(
+          "http://127.0.0.1:3001/api/queue/pop-to-spotify",
+          {
+            method: "POST",
+            credentials: "include",
+          }
+        );
+
+        if (response.ok) {
+          console.log("Playback started successfully");
+          setHasSynced(true);
+        } else {
+          console.error("Failed to start playback:", await response.text());
+        }
       }
-    } catch (err) {
-      console.error("Error syncing playback:", err);
+    } catch (error) {
+      console.error("Error syncing/starting playback:", error);
     }
   };
 
-  // Fetch Spotify token
+  // Auto-sync when device becomes active
   useEffect(() => {
+    if (
+      !isActive ||
+      !deviceId ||
+      !accessToken ||
+      !serverPlaybackState ||
+      hasSynced
+    )
+      return;
+
+    syncPlayback();
+  }, [isActive, deviceId, accessToken, serverPlaybackState, hasSynced]);
+
+  useEffect(() => {
+    // Only fetch access token if user is authenticated
     if (!isAuthenticated) return;
+
+    // Fetch access token from backend
     const fetchToken = async () => {
       try {
         const response = await fetch("http://127.0.0.1:3001/api/auth/token", {
           credentials: "include",
         });
+
         if (response.ok) {
           const data = await response.json();
           setAccessToken(data.access_token);
         } else {
           const error = await response.json();
-          setTokenError(
-            error.expired
-              ? "Your session has expired. Please log in again."
-              : "Failed to get access token"
-          );
+          if (error.expired) {
+            setTokenError("Your session has expired. Please log in again.");
+          } else {
+            setTokenError("Failed to get access token");
+          }
         }
-      } catch {
+      } catch (error) {
+        console.error("Error fetching token:", error);
         setTokenError("Failed to connect to server");
       }
     };
+
     fetchToken();
   }, [isAuthenticated]);
 
-  // Initialize Spotify SDK
   useEffect(() => {
     if (!accessToken) return;
+
+    // Load Spotify SDK script
     const script = document.createElement("script");
     script.src = "https://sdk.scdn.co/spotify-player.js";
     script.async = true;
     document.body.appendChild(script);
 
+    // Initialize player when SDK is ready
     window.onSpotifyWebPlaybackSDKReady = () => {
       const spotifyPlayer = new window.Spotify.Player({
         name: "Q'ed Up Player",
-        getOAuthToken: (cb) => cb(accessToken),
+        getOAuthToken: (cb) => {
+          cb(accessToken);
+        },
         volume: 0.5,
       });
 
+      // Ready event - player is connected
       spotifyPlayer.addListener("ready", ({ device_id }) => {
+        console.log("Ready with Device ID", device_id);
         setDeviceId(device_id);
         setIsActive(true);
       });
 
-      spotifyPlayer.addListener("not_ready", () => setIsActive(false));
+      // Not Ready event - player went offline
+      spotifyPlayer.addListener("not_ready", ({ device_id }) => {
+        console.log("Device ID has gone offline", device_id);
+        setIsActive(false);
+      });
+
+      // Player state changed - just update UI state
       spotifyPlayer.addListener("player_state_changed", (state) => {
         if (!state) return;
+
         setCurrentTrack(state.track_window.current_track);
         setIsPaused(state.paused);
       });
 
+      // Error listeners
+      spotifyPlayer.addListener("initialization_error", ({ message }) => {
+        console.error("Initialization Error:", message);
+      });
+
+      spotifyPlayer.addListener("authentication_error", ({ message }) => {
+        console.error("Authentication Error:", message);
+      });
+
+      spotifyPlayer.addListener("account_error", ({ message }) => {
+        console.error("Account Error:", message);
+      });
+
+      spotifyPlayer.addListener("playback_error", ({ message }) => {
+        console.error("Playback Error:", message);
+      });
+
+      // Connect the player
       spotifyPlayer.connect();
       setPlayer(spotifyPlayer);
     };
 
-    return () => player && player.disconnect();
+    return () => {
+      if (player) {
+        player.disconnect();
+      }
+    };
   }, [accessToken]);
 
-  // 🕹️ Playback controls
-  const togglePlay = () => player?.togglePlay();
-  const skipNext = () => player?.nextTrack();
-  const skipPrevious = () => player?.previousTrack();
+  const togglePlay = () => {
+    if (player) {
+      player.togglePlay();
+    }
+  };
+
+  const skipNext = () => {
+    if (player) {
+      player.nextTrack();
+    }
+  };
+
+  const skipPrevious = () => {
+    if (player) {
+      player.previousTrack();
+    }
+  };
 
   // UI conditional states
   if (!isAuthenticated)
