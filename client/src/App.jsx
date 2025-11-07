@@ -1,10 +1,7 @@
 import { useState, useEffect } from "react";
 import { io } from "socket.io-client";
-import "./App.css";
-import SpotifyPlayer from "./SpotifyPlayer";
-import SearchSongs from "./SearchSongs";
-import Scene from "./Scene";
-import OverlayUI from "./UIOverlay";
+import Scene from "./components/Scene";
+import OverlayUI from "./components/UIOverlay";
 
 function App() {
   const [socket, setSocket] = useState(null);
