@@ -39,7 +39,9 @@ public-music-queue/
 │   └── src/
 │       ├── App.jsx                 # Main component with queue display
 │       ├── SearchSongs.jsx         # Search UI component
-│       ├── SpotifyPlayer.jsx       # Spotify web player
+│       ├── MusicPlayer.jsx         # Spotify web player
+│       ├── Scene.jsx               # Three.js 3D Main Scene
+│       ├── UIOverlay.jsx           # 2D UI Elements
 │       └── Toast.jsx               # Toast notification component
 │
 └── shared/
@@ -50,6 +52,7 @@ public-music-queue/
 ## Setup
 
 ### 1. Backend Dependencies
+
 ```bash
 cd server
 npm init -y
@@ -58,6 +61,7 @@ npm install --save-dev nodemon
 ```
 
 ### 2. Frontend Dependencies
+
 ```bash
 cd client
 npm create vite@latest . -- --template react
@@ -69,6 +73,7 @@ npm install socket.io-client
 ### 3. Database Setup
 
 **Create PostgreSQL database:**
+
 ```bash
 psql postgres
 ```
@@ -79,12 +84,14 @@ CREATE DATABASE musicqueue;
 ```
 
 **Run migrations:**
+
 ```bash
 cd server
 psql -d musicqueue -f db/schema.sql
 ```
 
 **Verify tables:**
+
 ```bash
 psql -d musicqueue -c "\dt"
 ```
@@ -94,6 +101,7 @@ You should see: `users`, `songs`, `queue_items`
 ### 4. Environment Variables
 
 Create `server/.env`:
+
 ```bash
 PORT=3001
 DATABASE_URL=postgresql://your_username@localhost:5432/musicqueue
@@ -109,11 +117,13 @@ SESSION_SECRET=your_generated_secret_here
 ```
 
 **Generate a secure session secret:**
+
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 Replace `your_username` with your PostgreSQL username. If you have a password:
+
 ```bash
 DATABASE_URL=postgresql://username:password@localhost:5432/musicqueue
 ```
@@ -121,12 +131,14 @@ DATABASE_URL=postgresql://username:password@localhost:5432/musicqueue
 ### 5. Run the Application
 
 **Terminal 1 - Start backend:**
+
 ```bash
 cd server
 node server.js
 ```
 
 **Terminal 2 - Start frontend:**
+
 ```bash
 cd client
 npm run dev
