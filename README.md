@@ -64,7 +64,7 @@ npm install --save-dev nodemon
 
 ```bash
 cd client
-npm create vite@latest . -- --template react
+npm install
 npm install socket.io-client
 # Optional for 3D features later:
 # npm install three @react-three/fiber @react-three/drei
