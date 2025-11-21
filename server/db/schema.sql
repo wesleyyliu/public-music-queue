@@ -35,22 +35,22 @@ CREATE TABLE "queue_items" (
   "added_at" timestamp DEFAULT (now())
 );
 
--- voting, voting to skip, etc user actions
-CREATE TABLE "user_actions" (
+-- voting to skip, etc user actions
+CREATE TABLE "vote_skip" (
   "id" serial PRIMARY KEY,
   "user_id" int NOT NULL,
-  "queue_item_id" int NOT NULL,
-  "action_type" varchat(50) NOT NULL,
-  "direction" smallint,
-  "created_at" timestamp DEFAULT 'NOW()'
+  "song_id" int NOT NULL,  -- Changed from queue_item_id
+  "action_type" varchar(50) NOT NULL DEFAULT 'skip',
+  "created_at" timestamp DEFAULT NOW(),
+  UNIQUE (user_id, song_id, action_type)
 );
 
 CREATE INDEX "idx_queue_items_added_at" ON "queue_items" ("added_at");
+CREATE INDEX "idx_user_actions_queue_item" ON "user_actions" ("queue_item_id");
+CREATE INDEX "idx_user_actions_user" ON "user_actions" ("user_id");
 
-COMMENT ON TABLE "user_actions" IS 'UNIQUE (user_id, queue_item_id, action_type)';
+ALTER TABLE "queue_items" ADD FOREIGN KEY ("song_id") REFERENCES "songs" ("id") ON DELETE CASCADE;
 
-ALTER TABLE "queue_items" ADD FOREIGN KEY ("song_id") REFERENCES "songs" ("id");
+ALTER TABLE "user_actions" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE;
 
-ALTER TABLE "user_actions" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id");
-
-ALTER TABLE "user_actions" ADD FOREIGN KEY ("queue_item_id") REFERENCES "queue_items" ("id");
+ALTER TABLE "user_actions" ADD FOREIGN KEY ("queue_item_id") REFERENCES "queue_items" ("id") ON DELETE CASCADE;
