@@ -105,7 +105,7 @@ Create `server/.env`:
 ```bash
 PORT=3001
 DATABASE_URL=postgresql://your_username@localhost:5432/musicqueue
-CLIENT_URL=http://localhost:5173
+CLIENT_URL=http://127.0.0.1:5173
 
 # Spotify OAuth (get from https://developer.spotify.com/dashboard)
 SPOTIFY_CLIENT_ID=your_spotify_client_id

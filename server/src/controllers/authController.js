@@ -88,9 +88,18 @@ const callback = async (req, res) => {
     // Store user info in session (NOT the token)
     req.session.userId = user.spotify_id;
     req.session.displayName = user.display_name;
-
-    // Redirect back to client - no sensitive data in URL
-    res.redirect(CLIENT_URL);
+    
+    // Save session explicitly to ensure cookie is set
+    req.session.save((err) => {
+      if (err) {
+        console.error('Error saving session:', err);
+        return res.redirect(`${CLIENT_URL}?error=session_save_failed`);
+      }
+      
+      console.log('Session saved successfully for user:', user.spotify_id);
+      // Redirect back to client - no sensitive data in URL
+      res.redirect(CLIENT_URL);
+    });
 
   } catch (error) {
     console.error('Auth callback error:', error);
@@ -100,7 +109,14 @@ const callback = async (req, res) => {
 
 // Get current user info from session
 const getCurrentUser = (req, res) => {
+  console.log('getCurrentUser called, session:', {
+    userId: req.session.userId,
+    displayName: req.session.displayName,
+    sessionId: req.sessionID
+  });
+  
   if (!req.session.userId) {
+    console.log('No userId in session');
     return res.status(401).json({ error: 'Not authenticated' });
   }
 

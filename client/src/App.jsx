@@ -11,6 +11,15 @@ function App() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
+    // Check for error query parameters from OAuth redirect
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get("error");
+    if (error) {
+      console.error("OAuth error:", error);
+      // Clear the error from URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     // Check for session and fetch user info
     const fetchUser = async () => {
       try {
@@ -20,7 +29,11 @@ function App() {
 
         if (response.ok) {
           const userData = await response.json();
+          console.log("User fetched successfully:", userData);
           setUser(userData);
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          console.log("Not authenticated:", response.status, errorData);
         }
       } catch (error) {
         console.error("Error fetching user:", error);
