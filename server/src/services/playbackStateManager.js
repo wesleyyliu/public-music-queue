@@ -1,18 +1,29 @@
 const spotifyService = require('./spotifyService');
 const queueService = require('./queueService');
 
-// In-memory playback state
-let playbackState = {
-  currentSong: null,        // { id, title, artist, spotifyUri, duration, ... }
-  startedAt: null,          // timestamp when song started playing
-  isPlaying: false,         // whether music is currently playing
-};
+// In-memory playback state per room
+// Map structure: { roomName: { currentSong, startedAt, isPlaying } }
+let playbackStates = new Map();
 
 // Reference to socket.io instance
 let io = null;
 
 // Polling interval reference
 let pollingInterval = null;
+
+/**
+ * Get or initialize playback state for a room
+ */
+function getRoomState(room = 'general') {
+  if (!playbackStates.has(room)) {
+    playbackStates.set(room, {
+      currentSong: null,
+      startedAt: null,
+      isPlaying: false,
+    });
+  }
+  return playbackStates.get(room);
+}
 
 /**
  * Initialize the playback state manager with socket.io instance
@@ -26,105 +37,117 @@ function initialize(socketIO) {
 }
 
 /**
- * Start a song - updates state and broadcasts to all clients
+ * Start a song - updates state and broadcasts to all clients in the room
+ * @param {Object} song - Song object
+ * @param {string} room - Room name (default: 'general')
  */
-function startSong(song) {
-  playbackState.currentSong = song;
-  playbackState.startedAt = Date.now();
-  playbackState.isPlaying = true;
-  
-  console.log(`Started playing: ${song.title} by ${song.artist}`);
-  
-  // Broadcast to all clients
+function startSong(song, room = 'general') {
+  const roomState = getRoomState(room);
+  roomState.currentSong = song;
+  roomState.startedAt = Date.now();
+  roomState.isPlaying = true;
+
+  console.log(`[${room}] Started playing: ${song.title} by ${song.artist}`);
+
+  // Broadcast to all clients in the room
   if (io) {
-    io.emit('playback:state', {
+    io.to(room).emit('playback:state', {
       currentSong: song,
-      startedAt: playbackState.startedAt,
-      isPlaying: true
+      startedAt: roomState.startedAt,
+      isPlaying: true,
+      room: room
     });
   }
 }
 
 /**
- * Get current playback state
+ * Get current playback state for a room
+ * @param {string} room - Room name (default: 'general')
  */
-function getPlaybackState() {
-  if (!playbackState.currentSong || !playbackState.isPlaying) {
+function getPlaybackState(room = 'general') {
+  const roomState = getRoomState(room);
+
+  if (!roomState.currentSong || !roomState.isPlaying) {
     return {
       currentSong: null,
       startedAt: null,
       isPlaying: false,
-      position: 0
+      position: 0,
+      room: room
     };
   }
-  
-  const position = Date.now() - playbackState.startedAt;
-  
+
+  const position = Date.now() - roomState.startedAt;
+
   return {
-    currentSong: playbackState.currentSong,
-    startedAt: playbackState.startedAt,
-    isPlaying: playbackState.isPlaying,
+    currentSong: roomState.currentSong,
+    startedAt: roomState.startedAt,
+    isPlaying: roomState.isPlaying,
     position: position,
-    duration: playbackState.currentSong.duration * 1000 // convert to ms
+    duration: roomState.currentSong.duration * 1000, // convert to ms
+    room: room
   };
 }
 
 /**
- * Get all connected users' Spotify IDs
+ * Get all connected users' Spotify IDs in a specific room
+ * @param {string} room - Room name (default: 'general')
  */
-async function getConnectedUserIds() {
-  // This will need to be enhanced - for now we'll track users via socket metadata
-  // For simplicity, we'll need to modify the WebSocket connection to store userId
+async function getConnectedUserIds(room = 'general') {
   if (!io) return [];
-  
+
   const connectedUsers = [];
-  const sockets = await io.fetchSockets();
-  console.log('Sockets:', sockets);
-  
+  const sockets = await io.in(room).fetchSockets();
+  console.log(`[${room}] Fetched ${sockets.length} socket(s)`);
+
   for (const socket of sockets) {
     if (socket.data.userId) {
       connectedUsers.push(socket.data.userId);
     }
   }
-  
+
   return connectedUsers;
 }
 
 /**
  * Poll playback state and auto-pop next song when needed
+ * Checks all active rooms
  */
 function startPolling() {
   // Clear any existing interval
   if (pollingInterval) {
     clearInterval(pollingInterval);
   }
-  
+
   // Check every 500ms
   pollingInterval = setInterval(async () => {
-    if (!playbackState.isPlaying || !playbackState.currentSong) {
-      return;
-    }
-    
-    const elapsed = Date.now() - playbackState.startedAt;
-    const duration = playbackState.currentSong.duration * 1000; // convert to ms
-    const timeRemaining = duration - elapsed;
-    console.log('Time remaining:', timeRemaining);
-    // When less than 2 seconds remain, pop next song
-    if (timeRemaining <= 2000 && timeRemaining > 0) {
-      console.log(`Song ending soon (${Math.floor(timeRemaining / 1000)}s remaining), auto-popping next song...`);
-      
-      // Prevent multiple triggers - mark as not playing
-      playbackState.isPlaying = false;
-      
-      try {
-        await popNextSongForAllUsers();
-      } catch (error) {
-        console.error('Error auto-popping next song:', error);
+    // Check each room's playback state
+    for (const [room, roomState] of playbackStates.entries()) {
+      if (!roomState.isPlaying || !roomState.currentSong) {
+        continue;
+      }
+
+      const elapsed = Date.now() - roomState.startedAt;
+      const duration = roomState.currentSong.duration * 1000; // convert to ms
+      const timeRemaining = duration - elapsed;
+
+      // When less than 2 seconds remain, pop next song
+      if (timeRemaining <= 2000 && timeRemaining > 0) {
+        console.log(`[${room}] Song ending soon (${Math.floor(timeRemaining / 1000)}s remaining), auto-popping next song...`);
+
+        // Prevent multiple triggers - mark as not playing
+        roomState.isPlaying = false;
+
+        try {
+          await popNextSongForAllUsers(room);
+        } catch (error) {
+          console.error(`[${room}] Error auto-popping next song:`, error);
+        }
       }
     }
   }, 500);
-  
-  console.log('Started playback polling');
+
+  console.log('Started playback polling for all rooms');
 }
 
 /**
@@ -139,77 +162,82 @@ function stopPolling() {
 }
 
 /**
- * Pop next song from queue and add to all users' Spotify queues
+ * Pop next song from queue and add to all users' Spotify queues in a room
+ * @param {string} room - Room name (default: 'general')
  */
-async function popNextSongForAllUsers() {
+async function popNextSongForAllUsers(room = 'general') {
   try {
-    // Get the first song in the queue
-    const nextSong = await queueService.getFirstSong();
-    
+    // Get the first song in the queue for this room
+    const nextSong = await queueService.getFirstSong(room);
+
     if (!nextSong) {
-      console.log('Queue is empty, no next song to play');
-      playbackState.currentSong = null;
-      playbackState.isPlaying = false;
-      
+      console.log(`[${room}] Queue is empty, no next song to play`);
+      const roomState = getRoomState(room);
+      roomState.currentSong = null;
+      roomState.isPlaying = false;
+
       if (io) {
-        io.emit('playback:state', {
+        io.to(room).emit('playback:state', {
           currentSong: null,
           startedAt: null,
-          isPlaying: false
+          isPlaying: false,
+          room: room
         });
       }
       return;
     }
-    
-    // Get all connected users with Spotify authentication
-    const userIds = await getConnectedUserIds();
-    
+
+    // Get all connected users with Spotify authentication in this room
+    const userIds = await getConnectedUserIds(room);
+
     if (userIds.length === 0) {
-      console.log('No authenticated users connected, cannot add to Spotify queue');
+      console.log(`[${room}] No authenticated users connected, cannot add to Spotify queue`);
       return;
     }
-    
-    console.log(`Adding song to Spotify queue for ${userIds.length} user(s)`);
-    
-    // Add to each user's Spotify queue
-    const addPromises = userIds.map(userId => 
-      spotifyService.addToSpotifyQueue(userId, nextSong.spotifyUri)
+
+    console.log(`[${room}] Starting playback for ${userIds.length} user(s)`);
+
+    // Start playing on each user's Spotify device
+    const playPromises = userIds.map(userId =>
+      spotifyService.playTrackNow(userId, nextSong.spotifyUri)
         .catch(error => {
-          console.error(`Failed to add song for user ${userId}:`, error.message);
+          console.error(`[${room}] Failed to start playback for user ${userId}:`, error.message);
           // Don't fail the whole operation if one user fails
         })
     );
-    
-    await Promise.all(addPromises);
-    
+
+    await Promise.all(playPromises);
+
     // Remove the song from our queue
     await queueService.removeSong(nextSong.id);
-    
-    // Update playback state
-    startSong(nextSong);
-    
-    // Broadcast updated queue to all clients
+
+    // Update playback state for this room
+    startSong(nextSong, room);
+
+    // Broadcast updated queue to all clients in the room
     if (io) {
-      const updatedQueue = await queueService.getQueue();
-      io.emit('queue:updated', updatedQueue);
+      const updatedQueue = await queueService.getQueue(room);
+      io.to(room).emit('queue:updated', updatedQueue);
     }
-    
-    console.log(`Successfully queued: ${nextSong.title}`);
+
+    console.log(`[${room}] Successfully queued: ${nextSong.title}`);
   } catch (error) {
-    console.error('Error in popNextSongForAllUsers:', error);
+    console.error(`[${room}] Error in popNextSongForAllUsers:`, error);
     throw error;
   }
 }
 
 /**
  * Trigger the next song (called automatically by server or on-demand)
+ * @param {string} room - Room name (default: 'general')
  */
-async function playNext() {
-  // Stop current playback
-  playbackState.isPlaying = false;
-  
+async function playNext(room = 'general') {
+  // Stop current playback for this room
+  const roomState = getRoomState(room);
+  roomState.isPlaying = false;
+
   // Pop next song
-  await popNextSongForAllUsers();
+  await popNextSongForAllUsers(room);
 }
 
 module.exports = {

@@ -1,8 +1,11 @@
 const Song = require('../models/Song');
 const QueueItem = require('../models/QueueItem');
 
-async function getQueue() {
+async function getQueue(room = null) {
   try {
+    if (room) {
+      return await QueueItem.getByRoom(room);
+    }
     return await QueueItem.getAll();
   } catch (error) {
     console.error('Error getting queue:', error);
@@ -14,12 +17,13 @@ async function getQueue() {
  * Add a song from Spotify to the queue
  * @param {Object} spotifyTrack - Spotify track data from search
  * @param {string} userId - User ID adding the song
+ * @param {string} room - Room/genre to add the song to (default: 'general')
  */
-async function addSpotifySong(spotifyTrack, userId) {
+async function addSpotifySong(spotifyTrack, userId, room = 'general') {
   try {
     // Check if song already exists in database
     let song = await Song.findBySpotifyId(spotifyTrack.id);
-    
+
     if (!song) {
       // Create new song with Spotify data
       song = await Song.create(
@@ -33,10 +37,10 @@ async function addSpotifySong(spotifyTrack, userId) {
         spotifyTrack.preview_url
       );
     }
-    
-    // Add to queue
-    const queueItem = await QueueItem.create(song.id, userId);
-    
+
+    // Add to queue with room
+    const queueItem = await QueueItem.create(song.id, userId, room);
+
     // Return formatted queue item
     return {
       id: queueItem.id,
@@ -45,6 +49,7 @@ async function addSpotifySong(spotifyTrack, userId) {
       duration: song.duration,
       addedBy: userId,
       addedAt: queueItem.added_at,
+      room: queueItem.room,
       spotifyId: song.spotify_id,
       album: song.album,
       albumArt: song.album_art
@@ -64,9 +69,9 @@ async function removeSong(songId) {
   }
 }
 
-async function clearQueue() {
+async function clearQueue(room = null) {
   try {
-    await QueueItem.clear();
+    await QueueItem.clear(room);
   } catch (error) {
     console.error('Error clearing queue:', error);
   }
@@ -74,11 +79,12 @@ async function clearQueue() {
 
 /**
  * Get the first song in the queue without removing it
+ * @param {string} room - Room to get first song from (optional)
  * @returns {Promise<Object|null>} The first song in queue or null if empty
  */
-async function getFirstSong() {
+async function getFirstSong(room = null) {
   try {
-    const queue = await QueueItem.getAll();
+    const queue = room ? await QueueItem.getByRoom(room) : await QueueItem.getAll();
     if (queue.length === 0) {
       return null;
     }

@@ -32,9 +32,12 @@ CREATE TABLE IF NOT EXISTS queue_items (
   id SERIAL PRIMARY KEY,
   song_id INTEGER REFERENCES songs(id) ON DELETE CASCADE,
   added_by VARCHAR(255),
+  room VARCHAR(100) DEFAULT 'general' NOT NULL,
   added_at TIMESTAMP DEFAULT NOW()
 );
 
--- Index for faster queries
+-- Indexes for faster queries
 CREATE INDEX IF NOT EXISTS idx_queue_items_added_at ON queue_items(added_at);
+CREATE INDEX IF NOT EXISTS idx_queue_items_room ON queue_items(room);
+CREATE INDEX IF NOT EXISTS idx_queue_items_room_added_at ON queue_items(room, added_at);
 

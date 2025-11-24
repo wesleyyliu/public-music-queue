@@ -1,47 +1,19 @@
 import { useEffect } from "react";
 
-function Toast({ message, type = "success", onClose }) {
+function Toast({ message, type = "info", onClose, duration = 3000 }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose();
-    }, 3000);
+    }, duration);
 
     return () => clearTimeout(timer);
-  }, [onClose]);
+  }, [duration, onClose]);
 
-  const backgroundColor = type === "success" ? "#1DB954" : "#dc3545";
+  const bgColor = type === "success" ? "bg-green-500" : type === "error" ? "bg-red-500" : "bg-blue-500";
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: "20px",
-        right: "20px",
-        backgroundColor,
-        color: "white",
-        padding: "1rem 1.5rem",
-        borderRadius: "8px",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-        zIndex: 9999,
-        maxWidth: "300px",
-        animation: "slideIn 0.3s ease-out",
-      }}
-    >
-      {message}
-      <style>
-        {`
-          @keyframes slideIn {
-            from {
-              transform: translateX(400px);
-              opacity: 0;
-            }
-            to {
-              transform: translateX(0);
-              opacity: 1;
-            }
-          }
-        `}
-      </style>
+    <div className={`fixed bottom-4 right-4 ${bgColor} text-white px-4 py-3 rounded-md shadow-lg z-50 animate-fade-in`}>
+      <p className="text-sm">{message}</p>
     </div>
   );
 }

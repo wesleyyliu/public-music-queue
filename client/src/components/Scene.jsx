@@ -1,31 +1,20 @@
-// Scene.jsx
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { OrbitControls, Stars } from "@react-three/drei";
 
 function Scene() {
   return (
-    <Canvas
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        zIndex: 0, // stays behind UI
-      }}
-      camera={{ position: [0, 0, 5], fov: 60 }}
-    >
-      <ambientLight intensity={0.5} />
-      <pointLight position={[5, 5, 5]} />
+    <div style={{ position: "absolute", width: "100%", height: "100%", zIndex: 0 }}>
+      <Canvas camera={{ position: [0, 0, 5], fov: 75 }}>
+        <ambientLight intensity={0.5} />
+        <pointLight position={[10, 10, 10]} />
 
-      {/* Example: rotating box */}
-      <mesh rotation={[0.4, 0.2, 0]}>
-        <boxGeometry args={[2, 2, 2]} />
-        <meshStandardMaterial color="hotpink" />
-      </mesh>
+        {/* Stars background */}
+        <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
 
-      <OrbitControls />
-    </Canvas>
+        {/* Optional orbit controls */}
+        <OrbitControls enableZoom={false} enablePan={false} />
+      </Canvas>
+    </div>
   );
 }
 

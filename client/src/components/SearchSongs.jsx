@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Search } from "lucide-react";
 import Toast from "./Toast";
 
-function SearchSongs({ user }) {
+function SearchSongs({ user, currentRoom = 'general' }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -81,7 +81,7 @@ function SearchSongs({ user }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ track }),
+        body: JSON.stringify({ track, room: currentRoom }),
       });
 
       if (!response.ok) throw new Error("Failed to add song to queue");
@@ -89,7 +89,7 @@ function SearchSongs({ user }) {
       const data = await response.json();
       console.log("Added to queue:", data);
 
-      setToast({ message: `Added "${track.name}" to queue!`, type: "success" });
+      setToast({ message: `Added "${track.name}" to ${currentRoom} queue!`, type: "success" });
     } catch (err) {
       console.error("Add to queue error:", err);
       setToast({ message: "Failed to add song to queue", type: "error" });

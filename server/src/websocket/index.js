@@ -19,39 +19,58 @@ function initSocketServer(httpServer) {
   io.on('connection', async (socket) => {
     console.log('Client connected:', socket.id);
 
-    // Send current queue to new connection
-    const currentQueue = await queueService.getQueue();
-    socket.emit('queue:updated', currentQueue);
-    
-    // Send current playback state to new connection
-    const playbackState = playbackStateManager.getPlaybackState();
-    socket.emit('playback:state', playbackState);
+    // Handle room joining
+    socket.on('room:join', async (room = 'general') => {
+      // Leave all previous rooms except the default socket room
+      const rooms = Array.from(socket.rooms);
+      rooms.forEach(r => {
+        if (r !== socket.id) {
+          socket.leave(r);
+        }
+      });
 
-    // Broadcast user count to all clients
-    const userCount = io.sockets.sockets.size;
-    console.log('Current user count:', userCount);
-    io.emit('users:count', userCount);
+      // Join the new room
+      socket.join(room);
+      socket.data.room = room;
+      console.log(`Socket ${socket.id} joined room: ${room}`);
+
+      // Send current queue for this room
+      const currentQueue = await queueService.getQueue(room);
+      socket.emit('queue:updated', currentQueue);
+
+      // Send current playback state for this room
+      const playbackState = playbackStateManager.getPlaybackState(room);
+      socket.emit('playback:state', playbackState);
+
+      // Broadcast user count to all clients in the room
+      const roomSockets = await io.in(room).fetchSockets();
+      const userCount = roomSockets.length;
+      console.log(`[${room}] Current user count:`, userCount);
+      io.to(room).emit('users:count', userCount);
+    });
 
     // Handle user authentication registration
     socket.on('user:register', async (userId) => {
       console.log('User registered with socket:', userId);
       socket.data.userId = userId;
-      
+
+      const room = socket.data.room || 'general';
+
       // Auto-start playback if this is the first user and there are songs in queue
-      const connectedUsers = await io.fetchSockets();
-      const authenticatedUsers = connectedUsers.filter(s => s.data.userId);
-      
+      const roomSockets = await io.in(room).fetchSockets();
+      const authenticatedUsers = roomSockets.filter(s => s.data.userId);
+
       if (authenticatedUsers.length === 1) {
-        // This is the first authenticated user
-        const currentState = playbackStateManager.getPlaybackState();
-        
+        // This is the first authenticated user in this room
+        const currentState = playbackStateManager.getPlaybackState(room);
+
         if (!currentState.isPlaying) {
           // No song is currently playing, check if there are songs in queue
-          const queue = await queueService.getQueue();
-          
+          const queue = await queueService.getQueue(room);
+
           if (queue.length > 0) {
-            console.log('First user connected with songs in queue, auto-starting playback...');
-            await playbackStateManager.playNext();
+            console.log(`[${room}] First user connected with songs in queue, auto-starting playback...`);
+            await playbackStateManager.playNext(room);
           }
         }
       }
@@ -60,13 +79,14 @@ function initSocketServer(httpServer) {
     // Handle remove song from queue
     socket.on('queue:remove', async (songId) => {
       try {
-        console.log('Removing song:', songId);
+        const room = socket.data.room || 'general';
+        console.log(`[${room}] Removing song:`, songId);
         const removed = await queueService.removeSong(songId);
-        
+
         if (removed) {
-          // Broadcast updated queue to all clients
-          const updatedQueue = await queueService.getQueue();
-          io.emit('queue:updated', updatedQueue);
+          // Broadcast updated queue to all clients in the room
+          const updatedQueue = await queueService.getQueue(room);
+          io.to(room).emit('queue:updated', updatedQueue);
         }
       } catch (error) {
         console.error('Error removing song:', error);
@@ -82,10 +102,15 @@ function initSocketServer(httpServer) {
 
     socket.on('disconnect', () => {
       console.log('Client disconnected:', socket.id);
-      // Broadcast updated user count
-      const userCount = io.sockets.sockets.size;
-      console.log('Current user count:', userCount);
-      io.emit('users:count', userCount);
+      const room = socket.data.room || 'general';
+
+      // Broadcast updated user count to the room
+      setTimeout(async () => {
+        const roomSockets = await io.in(room).fetchSockets();
+        const userCount = roomSockets.length;
+        console.log(`[${room}] Current user count:`, userCount);
+        io.to(room).emit('users:count', userCount);
+      }, 100);
     });
   });
 

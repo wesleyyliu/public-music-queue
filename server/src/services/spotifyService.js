@@ -114,7 +114,7 @@ async function addToSpotifyQueue(userId, trackUri) {
     }
   });
 
-  console.log('Response:', response);
+  console.log('Add to queue response:', response.status);
 
   if (!response.ok) {
     const error = await response.text();
@@ -122,9 +122,45 @@ async function addToSpotifyQueue(userId, trackUri) {
   }
 }
 
+/**
+ * Start playing a track immediately on the user's active device
+ * @param {string} userId - The user's Spotify ID
+ * @param {string} trackUri - The Spotify URI of the track to play (e.g., spotify:track:abc123)
+ * @param {string} deviceId - Optional device ID to play on
+ * @returns {Promise<void>}
+ */
+async function playTrackNow(userId, trackUri, deviceId = null) {
+  const accessToken = await getValidAccessToken(userId);
+
+  const url = deviceId
+    ? `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`
+    : 'https://api.spotify.com/v1/me/player/play';
+
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      uris: [trackUri],
+      position_ms: 0
+    })
+  });
+
+  console.log('Play track now response:', response.status);
+
+  if (!response.ok && response.status !== 204) {
+    const error = await response.text();
+    console.error('Failed to play track:', error);
+    throw new Error(`Failed to play track: ${error}`);
+  }
+}
+
 module.exports = {
   getValidAccessToken,
   searchTracks,
-  addToSpotifyQueue
+  addToSpotifyQueue,
+  playTrackNow
 };
 

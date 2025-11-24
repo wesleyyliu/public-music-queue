@@ -20,6 +20,7 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production', // true in production (requires HTTPS)
     httpOnly: true, // prevents JavaScript access to cookie
+    sameSite: 'lax', // allows cookies to be sent on redirects from Spotify
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));

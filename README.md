@@ -2,6 +2,17 @@
 
 Music discovery today happens in algorithmic bubbles or private friend groups. This project creates one completely open music queue where anyone can contribute songs and discover music together.
 
+## Features
+
+- **Multiple Genre Rooms** - Join different rooms based on music preferences (Rock, Pop, Hip-Hop, Electronic, Jazz, Classical, Country, or General)
+- **Real-time Synchronization** - Queue updates and playback state sync across all users in the same room via WebSockets
+- **Spotify Integration** - Search Spotify's catalog and add songs to your room's queue
+- **Independent Playback** - Each room has its own queue and playback state
+- **Auto-progression** - Songs automatically advance when they finish
+- **Collaborative Queueing** - Multiple users can add songs to the same room's queue
+
+📖 **[Learn more about the Rooms feature →](ROOMS_FEATURE.md)**
+
 ## Structure
 
 ```

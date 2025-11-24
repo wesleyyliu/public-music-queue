@@ -9,6 +9,7 @@ function App() {
   const [userCount, setUserCount] = useState(0);
   const [queue, setQueue] = useState([]);
   const [user, setUser] = useState(null);
+  const [currentRoom, setCurrentRoom] = useState('general');
 
   useEffect(() => {
     // Check for session and fetch user info
@@ -62,6 +63,14 @@ function App() {
     };
   }, []);
 
+  // Join room when socket connects or room changes
+  useEffect(() => {
+    if (socket && connected) {
+      console.log("Joining room:", currentRoom);
+      socket.emit("room:join", currentRoom);
+    }
+  }, [socket, connected, currentRoom]);
+
   // Register user with socket when both are ready
   useEffect(() => {
     if (socket && user && user.spotify_id) {
@@ -92,6 +101,10 @@ function App() {
     }
   };
 
+  const handleRoomChange = (newRoom) => {
+    setCurrentRoom(newRoom);
+  };
+
   return (
     <div
       style={{
@@ -110,9 +123,11 @@ function App() {
         userCount={userCount}
         queue={queue}
         user={user}
+        currentRoom={currentRoom}
         onRemoveSong={removeSong}
         onLogin={handleLogin}
         onLogout={handleLogout}
+        onRoomChange={handleRoomChange}
       />
     </div>
   );

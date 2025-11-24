@@ -30,6 +30,7 @@ DATABASE_URL=postgresql://username:password@localhost:5432/musicqueue
 
 ## 3. Run Database Migrations
 
+For a fresh database:
 ```bash
 cd server
 psql -d musicqueue -f db/schema.sql
@@ -38,6 +39,11 @@ psql -d musicqueue -f db/schema.sql
 Or if you need to specify a username:
 ```bash
 psql -U your_username -d musicqueue -f db/schema.sql
+```
+
+**For existing databases:** If you already have the database set up and need to add room support:
+```bash
+psql -d musicqueue -f db/migration_add_room.sql
 ```
 
 ## 4. Verify Tables Were Created

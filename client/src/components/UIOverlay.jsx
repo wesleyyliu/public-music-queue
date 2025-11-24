@@ -8,15 +8,23 @@ export default function OverlayUI({
   userCount,
   queue,
   user,
+  currentRoom,
   onRemoveSong,
   onLogin,
   onLogout,
+  onRoomChange,
 }) {
   return (
     <>
       {/* Menu Bar */}
       <div className="absolute top-0 left-0 m-4">
-        <MenuBar user={user} onLogin={onLogin} onLogout={onLogout} />
+        <MenuBar
+          user={user}
+          currentRoom={currentRoom}
+          onLogin={onLogin}
+          onLogout={onLogout}
+          onRoomChange={onRoomChange}
+        />
       </div>
       <div className="absolute top-0 right-0 m-4">
         <MusicPlayer
@@ -26,6 +34,7 @@ export default function OverlayUI({
           user={user}
           userCount={userCount}
           queue={queue}
+          currentRoom={currentRoom}
           onRemoveSong={onRemoveSong}
         />
       </div>

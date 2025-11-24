@@ -16,7 +16,8 @@ const requireAuth = (req, res, next) => {
 // Get current queue
 router.get('/', async (req, res) => {
   try {
-    const queue = await queueService.getQueue();
+    const room = req.query.room || 'general';
+    const queue = await queueService.getQueue(room);
     res.json({ queue });
   } catch (error) {
     console.error('Get queue error:', error);
@@ -26,20 +27,20 @@ router.get('/', async (req, res) => {
 
 // Add a song to the queue
 router.post('/add', requireAuth, async (req, res) => {
-  const { track } = req.body;
+  const { track, room = 'general' } = req.body;
 
   if (!track || !track.id) {
     return res.status(400).json({ error: 'Track data is required' });
   }
 
   try {
-    const queueItem = await queueService.addSpotifySong(track, req.session.userId);
-    
-    // Broadcast updated queue to all connected clients via WebSocket
+    const queueItem = await queueService.addSpotifySong(track, req.session.userId, room);
+
+    // Broadcast updated queue to all connected clients in the room via WebSocket
     const io = getIO();
-    const updatedQueue = await queueService.getQueue();
-    io.emit('queue:updated', updatedQueue);
-    
+    const updatedQueue = await queueService.getQueue(room);
+    io.to(room).emit('queue:updated', updatedQueue);
+
     res.json({ success: true, queueItem });
   } catch (error) {
     console.error('Add to queue error:', error);
@@ -51,8 +52,10 @@ router.post('/add', requireAuth, async (req, res) => {
 // Note: This is now primarily triggered automatically by the server
 router.post('/pop-to-spotify', requireAuth, async (req, res) => {
   try {
-    // Use playback state manager to handle popping for all users
-    await playbackStateManager.playNext();
+    const { room = 'general' } = req.body;
+
+    // Use playback state manager to handle popping for all users in the room
+    await playbackStateManager.playNext(room);
 
     res.json({ success: true, message: 'Next song queued for all users' });
   } catch (error) {
