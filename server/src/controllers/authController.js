@@ -88,7 +88,7 @@ const callback = async (req, res) => {
     // Store user info in session (NOT the token)
     req.session.userId = user.spotify_id;
     req.session.displayName = user.display_name;
-    
+
     // Save session explicitly to ensure cookie is set
     req.session.save((err) => {
       if (err) {
@@ -97,8 +97,8 @@ const callback = async (req, res) => {
       }
       
       console.log('Session saved successfully for user:', user.spotify_id);
-      // Redirect back to client - no sensitive data in URL
-      res.redirect(CLIENT_URL);
+    // Redirect back to client - no sensitive data in URL
+    res.redirect(CLIENT_URL);
     });
 
   } catch (error) {

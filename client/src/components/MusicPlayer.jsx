@@ -324,6 +324,9 @@ function SpotifyPlayer({
                 </div>
 
                 <div className="flex flex-row justify-center items-center gap-6 font-medium">
+                  <button className="flex flex-col items-center gap-2 bg-transparent text-white">
+                    <SkipBack size={28} /> <span>501</span>
+                  </button>
                   <div className="flex flex-col items-center gap-2">
                     <ThumbsUp size={28} /> <span>250</span>
                   </div>

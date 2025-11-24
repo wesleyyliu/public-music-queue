@@ -112,6 +112,7 @@ function App() {
         height: "100%",
         width: "100%",
       }}
+      className="bg-black"
     >
       {/* 3D BACKGROUND */}
       <Scene />

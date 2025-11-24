@@ -11,7 +11,7 @@ const SKIP_THRESHOLD = parseFloat(process.env.SKIP_THRESHOLD || 0.5);
 async function getConnectedUserCount() {
   try {
     // get the socket.io instance from websocket module
-    const { getIO } = requrie ('../websocket');
+    const { getIO } = require ('../websocket');
     const io = getIO();
     if (!io) {
       return 0;
@@ -65,6 +65,7 @@ async function checkSkipThreshold(songId, connectedUserCount = null) {
       threshold: SKIP_THRESHOLD
     }
   }
+}
 
   /**
  * Vote to skip the currently playing song
@@ -80,6 +81,7 @@ async function checkSkipThreshold(songId, connectedUserCount = null) {
         // return existing vote info without creating duplicate
         const voteCount = await Vote.getSkipVoteCount(songId);
         const thresholdStatus = await checkSkipThreshold(songId);
+        await broadcastVoteStatus(songId);
 
         return {
           success: false,
@@ -94,6 +96,7 @@ async function checkSkipThreshold(songId, connectedUserCount = null) {
       // get updated vote count and threshold status
       const voteCount = await Vote.getSkipVoteCount(songId);
       const thresholdStatus = await checkSkipThreshold(songId);
+      await broadcastVoteStatus(songId);
 
       // if threshold reached, trigger skip
       if (thresholdStatus.thresholdReached) {
@@ -130,6 +133,7 @@ async function checkSkipThreshold(songId, connectedUserCount = null) {
       // get updated voite count and threshold status
       const voteCount = await Vote.getSkipVoteCount(songId);
       const thresholdStatus = await checkSkipThreshold(songId);
+      await broadcastVoteStatus(songId);
 
       return {
         success: true,
@@ -142,47 +146,64 @@ async function checkSkipThreshold(songId, connectedUserCount = null) {
     }
   }
 
-  /**
-   * Get current vote status for a song
-   * @param {number} songId - The ID of the song
-   * @param {number} userId - Optional user ID to check if they've voted
-   * @returns {Promise<Object>} Vote status information
-   */
-  async function getVoteStatus(songId, userId = null) {
-    try {
-      // get vote count from db
-      const voteCount = await Vote.getSkipVoteCount(songId);
-      // check threshold status 
-      const thresholdStatus = await checkSkipThreshold(songId);
-      // check if a specific user has voted (if userId provided)
-      let userHasVoted = null;
-      if (userId) {
-        userHasVoted = await Vote.hasUserVoted(userId, songId);
-      }
-      return {
-        songId,
-        voteCount,
-        userHasVoted,
-        ...thresholdStatus
-      };
-    } catch (error) {
-      console.error('Error getting vote status:', error);
-      throw error;
+/**
+ * Get current vote status for a song
+ * @param {number} songId - The ID of the song
+ * @param {number} userId - Optional user ID to check if they've voted
+ * @returns {Promise<Object>} Vote status information
+ */
+async function getVoteStatus(songId, userId = null) {
+  try {
+    // get vote count from db
+    const voteCount = await Vote.getSkipVoteCount(songId);
+    // check threshold status 
+    const thresholdStatus = await checkSkipThreshold(songId);
+    await broadcastVoteStatus(songId);
+    // check if a specific user has voted (if userId provided)
+    let userHasVoted = null;
+    if (userId) {
+      userHasVoted = await Vote.hasUserVoted(userId, songId);
     }
-  }
-
-  /**
-   * Clear all skip votes for a song (called when song changes)
-   * @param {number} songId - The ID of the song
-   */
-  async function clearSkipVotes(songId) {
-    try {
-      await Vote.clearSkipVotes(songId);
-    } catch (error) {
-      console.error('Error clearing skip votes:', error);
-    }
+    return {
+      songId,
+      voteCount,
+      userHasVoted,
+      ...thresholdStatus
+    };
+  } catch (error) {
+    console.error('Error getting vote status:', error);
+    throw error;
   }
 }
+
+/**
+ * Clear all skip votes for a song (called when song changes)
+ * @param {number} songId - The ID of the song
+ */
+async function clearSkipVotes(songId) {
+  try {
+    await Vote.clearSkipVotes(songId);
+  } catch (error) {
+    console.error('Error clearing skip votes:', error);
+  }
+}
+
+async function broadcastVoteStatus(songId) {
+  try {
+    const io = getIO();
+    if (!io) return; // Server might not be initialized (tests, etc.)
+
+    const status = await checkSkipThreshold(songId);
+
+    io.emit("vote:update", {
+      songId,
+      ...status,
+    });
+  } catch (error) {
+    console.error("Error broadcasting vote status:", error);
+  }
+}
+
 
 module.exports = {
   voteToSkip,
