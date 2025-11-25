@@ -6,6 +6,9 @@ const { initSocketServer } = require('./src/websocket');
 const PORT = process.env.PORT || 3001;
 const server = http.createServer(app);
 
+const voteRoutes = require("./src/routes/voteRoutes");
+app.use("/api/vote", voteRoutes);
+
 initSocketServer(server);
 
 server.listen(PORT, () => {

@@ -124,6 +124,33 @@ function SpotifyPlayer({
     }
   };
 
+  const voteToSkip = async () => {
+    try {
+      console.log("USER OBJECT:", user);
+      console.log("Sending skip vote:", {
+        userId: user.spotify_id,
+        songId: serverPlaybackState?.currentSong?.id,
+        serverPlaybackState,
+        user,
+      });
+
+      const res = await fetch("http://127.0.0.1:3001/api/vote/skip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          userId: user.spotify_id,
+          songId: serverPlaybackState?.currentSong?.id,
+        }),
+      });
+
+      const data = await res.json();
+      console.log("Skip vote response:", data);
+    } catch (err) {
+      console.error("Error voting to skip:", err);
+    }
+  };
+
   // Auto-sync when device becomes active
   useEffect(() => {
     if (
@@ -324,7 +351,10 @@ function SpotifyPlayer({
                 </div>
 
                 <div className="flex flex-row justify-center items-center gap-6 font-medium">
-                  <button className="flex flex-col items-center gap-2 bg-transparent text-white">
+                  <button
+                    onClick={voteToSkip}
+                    className="flex flex-col items-center gap-2 bg-transparent text-white"
+                  >
                     <SkipBack size={28} /> <span>501</span>
                   </button>
                   <div className="flex flex-col items-center gap-2">
@@ -354,7 +384,7 @@ function SpotifyPlayer({
 
           <div className="flex gap-4">
             <button
-              onClick={skipPrevious}
+              onClick={voteToSkip}
               className="glass-background p-2 rounded-md"
             >
               <SkipBack />

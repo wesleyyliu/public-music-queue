@@ -11,7 +11,7 @@ const SKIP_THRESHOLD = parseFloat(process.env.SKIP_THRESHOLD || 0.5);
 async function getConnectedUserCount() {
   try {
     // get the socket.io instance from websocket module
-    const { getIO } = require ('../websocket');
+    const { getIO } = require("../websocket");
     const io = getIO();
     if (!io) {
       return 0;
@@ -20,12 +20,12 @@ async function getConnectedUserCount() {
     const sockets = await io.fetchSockets();
 
     // Filter to only authenticated users (those with userId in socket.data)
-    const authenticatedUsers = sockets.filter(socket => socket.data.userId);
-    
+    const authenticatedUsers = sockets.filter((socket) => socket.data.userId);
+
     // Return the count
     return authenticatedUsers.length;
   } catch (error) {
-    console.error('Error getting connected user count:', error);
+    console.error("Error getting connected user count:", error);
     return 0;
   }
 }
@@ -46,105 +46,108 @@ async function checkSkipThreshold(songId, connectedUserCount = null) {
     }
     // calculate how many votes are req'd
     const requiredVotes = Math.ceil(connectedUserCount * SKIP_THRESHOLD);
-    const thresholdReached = voteCount >= requiredVotes && connectedUserCount > 0;
+    const thresholdReached =
+      voteCount >= requiredVotes && connectedUserCount > 0;
 
     return {
       thresholdReached,
       voteCount,
       requiredVotes,
       connectedUsers: connectedUserCount,
-      threshold: SKIP_THRESHOLD
+      threshold: SKIP_THRESHOLD,
     };
   } catch (error) {
-    console.error('Error checking skip threshold: ', error);
+    console.error("Error checking skip threshold: ", error);
     return {
       thresholdReached: false,
       voteCount: 0,
       requiredVotes: 0,
       connectedUsers: 0,
-      threshold: SKIP_THRESHOLD
-    }
+      threshold: SKIP_THRESHOLD,
+    };
   }
 }
 
-  /**
+/**
  * Vote to skip the currently playing song
  * @param {number} userId - The ID of the user voting
  * @param {number} songId - The ID of the song to skip
  * @returns {Promise<Object>} Object with vote info and threshold status
  */
-  async function voteToSkip(userId, songId) {
-    try {
-      // check if the user has already voted
-      const alreadyVoted = await Vote.hasUserVoted(userId, songId);
-      if (alreadyVoted) {
-        // return existing vote info without creating duplicate
-        const voteCount = await Vote.getSkipVoteCount(songId);
-        const thresholdStatus = await checkSkipThreshold(songId);
-        await broadcastVoteStatus(songId);
-
-        return {
-          success: false,
-          message: 'User has already voted to skip',
-          voteCount,
-          ...thresholdStatus
-        };
-      }
-      // create the vote in the db
-      const vote = await Vote.voteToSkip(userId, songId);
-
-      // get updated vote count and threshold status
-      const voteCount = await Vote.getSkipVoteCount(songId);
-      const thresholdStatus = await checkSkipThreshold(songId);
-      await broadcastVoteStatus(songId);
-
-      // if threshold reached, trigger skip
-      if (thresholdStatus.thresholdReached) {
-        console.log('Skip threshold reached for song ${songId} (${voteCount}/${thresholdStatsu.requiredVotes} votes)');
-        
-        // clear all skip votes for this song
-        await Vote.clearSkipVotes(songId);
-
-        await playbackStateManager.playNext();
-      }
-      return {
-        success: true,
-        vote,
-        voteCount,
-        ...thresholdStatus
-      };
-    } catch (error) {
-      console.error('Errror voting to skip: ', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Remove a user's skip vote (could be optional, depending on implementation)
-   * @param {number} userId - The ID of the user
-   * @param {number} songId - The ID of the song
-   * @returns {Promise<Object>} Updated vote info
-   */
-  async function removeVote(userId, songId) {
-    try {
-      // remove vote from db
-      await Vote.removeVote(userId, songId);
-
-      // get updated voite count and threshold status
+async function voteToSkip(userId, songId) {
+  try {
+    // check if the user has already voted
+    const alreadyVoted = await Vote.hasUserVoted(userId, songId);
+    if (alreadyVoted) {
+      // return existing vote info without creating duplicate
       const voteCount = await Vote.getSkipVoteCount(songId);
       const thresholdStatus = await checkSkipThreshold(songId);
       await broadcastVoteStatus(songId);
 
       return {
-        success: true,
+        success: false,
+        message: "User has already voted to skip",
         voteCount,
-        ...thresholdStatus
+        ...thresholdStatus,
       };
-    } catch (error) {
-      console.error('Error removing vote:', error);
-      throw error;
     }
+    // create the vote in the db
+    const vote = await Vote.voteToSkip(userId, songId);
+
+    // get updated vote count and threshold status
+    const voteCount = await Vote.getSkipVoteCount(songId);
+    const thresholdStatus = await checkSkipThreshold(songId);
+    await broadcastVoteStatus(songId);
+
+    // if threshold reached, trigger skip
+    if (thresholdStatus.thresholdReached) {
+      console.log(
+        "Skip threshold reached for song ${songId} (${voteCount}/${thresholdStatsu.requiredVotes} votes)"
+      );
+
+      // clear all skip votes for this song
+      await Vote.clearSkipVotes(songId);
+
+      await playbackStateManager.playNext();
+    }
+    return {
+      success: true,
+      vote,
+      voteCount,
+      ...thresholdStatus,
+    };
+  } catch (error) {
+    console.error("Errror voting to skip: ", error);
+    throw error;
   }
+}
+
+/**
+ * Remove a user's skip vote (could be optional, depending on implementation)
+ * @param {number} userId - The ID of the user
+ * @param {number} songId - The ID of the song
+ * @returns {Promise<Object>} Updated vote info
+ */
+async function removeVote(userId, songId) {
+  try {
+    // remove vote from db
+    await Vote.removeVote(userId, songId);
+
+    // get updated voite count and threshold status
+    const voteCount = await Vote.getSkipVoteCount(songId);
+    const thresholdStatus = await checkSkipThreshold(songId);
+    await broadcastVoteStatus(songId);
+
+    return {
+      success: true,
+      voteCount,
+      ...thresholdStatus,
+    };
+  } catch (error) {
+    console.error("Error removing vote:", error);
+    throw error;
+  }
+}
 
 /**
  * Get current vote status for a song
@@ -156,7 +159,7 @@ async function getVoteStatus(songId, userId = null) {
   try {
     // get vote count from db
     const voteCount = await Vote.getSkipVoteCount(songId);
-    // check threshold status 
+    // check threshold status
     const thresholdStatus = await checkSkipThreshold(songId);
     await broadcastVoteStatus(songId);
     // check if a specific user has voted (if userId provided)
@@ -168,10 +171,10 @@ async function getVoteStatus(songId, userId = null) {
       songId,
       voteCount,
       userHasVoted,
-      ...thresholdStatus
+      ...thresholdStatus,
     };
   } catch (error) {
-    console.error('Error getting vote status:', error);
+    console.error("Error getting vote status:", error);
     throw error;
   }
 }
@@ -184,7 +187,7 @@ async function clearSkipVotes(songId) {
   try {
     await Vote.clearSkipVotes(songId);
   } catch (error) {
-    console.error('Error clearing skip votes:', error);
+    console.error("Error clearing skip votes:", error);
   }
 }
 
@@ -204,7 +207,6 @@ async function broadcastVoteStatus(songId) {
   }
 }
 
-
 module.exports = {
   voteToSkip,
   removeVote,
@@ -212,5 +214,5 @@ module.exports = {
   checkSkipThreshold,
   clearSkipVotes,
   getConnectedUserCount,
-  SKIP_THRESHOLD
+  SKIP_THRESHOLD,
 };
