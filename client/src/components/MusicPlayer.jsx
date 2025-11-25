@@ -31,6 +31,11 @@ function SpotifyPlayer({
   const [showInstructions, setShowInstructions] = useState(false);
   const [serverPlaybackState, setServerPlaybackState] = useState(null);
   const [hasSynced, setHasSynced] = useState(false);
+  const [skipStatus, setSkipStatus] = useState({
+    voteCount: 0,
+    requiredVotes: 1,
+    thresholdReached: false,
+  });
 
   const isAuthenticated = !!user;
 
@@ -125,31 +130,88 @@ function SpotifyPlayer({
   };
 
   const voteToSkip = async () => {
+    if (!user || !serverPlaybackState?.currentSong) return;
+
     try {
-      console.log("USER OBJECT:", user);
-      console.log("Sending skip vote:", {
-        userSpotifyId: user.spotify_id,
-        songId: serverPlaybackState?.currentSong?.id,
-        serverPlaybackState,
-        user,
+      const res = await fetch("http://127.0.0.1:3001/api/votes/skip", {
+        method: "POST",
+        credentials: "include",
       });
 
-      const res = await fetch("http://127.0.0.1:3001/api/vote/skip", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          userSpotifyId: user.spotify_id,
-          songId: serverPlaybackState?.currentSong?.id,
-        }),
-      });
+      if (!res.ok) {
+        const error = await res
+          .json()
+          .catch(() => ({ error: "Failed to vote" }));
+        console.error("Vote error:", error);
+        return;
+      }
 
       const data = await res.json();
       console.log("Skip vote response:", data);
+
+      // Update local state with response
+      if (data.voteCount !== undefined) {
+        setSkipStatus({
+          voteCount: data.voteCount,
+          requiredVotes: data.requiredVotes || 1,
+          thresholdReached: data.thresholdReached || false,
+        });
+      }
     } catch (err) {
       console.error("Error voting to skip:", err);
     }
   };
+
+  // Live update skip counts via WebSocket
+  useEffect(() => {
+    if (!socket) return;
+
+    const handler = (data) => {
+      console.log("Real-time vote update:", data);
+
+      setSkipStatus({
+        voteCount: data.voteCount || 0,
+        requiredVotes: data.requiredVotes || 1,
+        thresholdReached: data.thresholdReached || false,
+      });
+    };
+
+    socket.on("vote:update", handler);
+    return () => socket.off("vote:update", handler);
+  }, [socket]);
+
+  // Fetch initial vote status when song changes
+  useEffect(() => {
+    if (!user || !serverPlaybackState?.currentSong) {
+      setSkipStatus({
+        voteCount: 0,
+        requiredVotes: 1,
+        thresholdReached: false,
+      });
+      return;
+    }
+
+    const fetchVoteStatus = async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:3001/api/votes/status", {
+          credentials: "include",
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setSkipStatus({
+            voteCount: data.voteCount || 0,
+            requiredVotes: data.requiredVotes || 1,
+            thresholdReached: data.thresholdReached || false,
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching vote status:", err);
+      }
+    };
+
+    fetchVoteStatus();
+  }, [user, serverPlaybackState?.currentSong?.id]);
 
   // Auto-sync when device becomes active
   useEffect(() => {
@@ -351,17 +413,28 @@ function SpotifyPlayer({
                 </div>
 
                 <div className="flex flex-row justify-center items-center gap-6 font-medium">
-                  <button
-                    onClick={voteToSkip}
-                    className="flex flex-col items-center gap-2 bg-transparent text-white"
-                  >
-                    <SkipBack size={28} /> <span>501</span>
-                  </button>
-                  <div className="flex flex-col items-center gap-2">
-                    <ThumbsUp size={28} /> <span>250</span>
+                  <div className="flex flex-col items-center gap-2 text-white">
+                    <button
+                      onClick={voteToSkip}
+                      className="flex flex-col items-center justify-center gap-2 bg-transparent hover:opacity-80"
+                    >
+                      <SkipForward size={20} />
+                      <span className="text-sm font-semibold">
+                        {skipStatus.voteCount} / {skipStatus.requiredVotes}
+                      </span>
+                    </button>
+
+                    {skipStatus.thresholdReached && (
+                      <span className="text-xs text-green-400 font-medium">
+                        Threshold Reached! 🎉
+                      </span>
+                    )}
                   </div>
                   <div className="flex flex-col items-center gap-2">
-                    <ThumbsDown size={28} /> <span>54</span>
+                    <ThumbsUp size={20} /> <span>250</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-2">
+                    <ThumbsDown size={20} /> <span>54</span>
                   </div>
                 </div>
               </div>
@@ -370,65 +443,6 @@ function SpotifyPlayer({
             <p className="text-gray-400 text-sm py-8">
               No song currently playing
             </p>
-          )}
-        </div>
-
-        {/* Controls */}
-        <div className="flex flex-col items-center gap-3 glass-background p-3 rounded-md">
-          <p className="text-sm text-gray-300">
-            Status:{" "}
-            <span className="font-medium">
-              {connected ? "✓ Connected" : "⏳ Connecting..."}
-            </span>
-          </p>
-
-          <div className="flex gap-4">
-            <button
-              onClick={voteToSkip}
-              className="glass-background p-2 rounded-md"
-            >
-              <SkipBack />
-            </button>
-            <button
-              onClick={togglePlay}
-              className="bg-[#1DB954] hover:bg-[#1ed760] text-white px-4 py-2 rounded-md font-semibold flex items-center gap-1"
-            >
-              {isPaused ? <Play size={16} /> : <Pause size={16} />}
-              {isPaused ? "Play" : "Pause"}
-            </button>
-            <button
-              onClick={skipNext}
-              className="glass-background p-2 rounded-md"
-            >
-              <SkipForward />
-            </button>
-          </div>
-
-          <button
-            onClick={syncPlayback}
-            className="text-sm glass-background px-3 py-1 rounded-md hover:bg-white/10"
-          >
-            🔄 Resync Playback
-          </button>
-
-          <button
-            onClick={() => setShowInstructions(!showInstructions)}
-            className="text-sm glass-background px-3 py-1 rounded-md flex items-center gap-1 hover:bg-white/10"
-          >
-            <Info size={14} />
-            {showInstructions ? "Hide Instructions" : "How to Use"}
-          </button>
-
-          {showInstructions && (
-            <div className="text-xs text-gray-300 mt-2 text-left w-full">
-              <ol className="list-decimal list-inside space-y-1">
-                <li>Open Spotify on desktop or mobile</li>
-                <li>Start playing a song</li>
-                <li>Click the “Devices” icon</li>
-                <li>Select “Q’ed Up Player”</li>
-                <li>Control playback here or in Spotify!</li>
-              </ol>
-            </div>
           )}
         </div>
 
