@@ -1,5 +1,7 @@
 const Vote = require("../models/Vote");
 const playbackStateManager = require("./playbackStateManager");
+const { getIO } = require("../websocket");
+
 
 const SKIP_THRESHOLD = parseFloat(process.env.SKIP_THRESHOLD || 0.5);
 
@@ -19,8 +21,10 @@ async function getConnectedUserCount() {
     // Fetch all connected sockets
     const sockets = await io.fetchSockets();
 
-    // Filter to only authenticated users (those with userId in socket.data)
-    const authenticatedUsers = sockets.filter((socket) => socket.data.userId);
+    // Filter to only authenticated users (those with userSpotifyId in socket.data)
+    const authenticatedUsers = sockets.filter(
+      (socket) => socket.data.userSpotifyId
+    );
 
     // Return the count
     return authenticatedUsers.length;
@@ -70,14 +74,14 @@ async function checkSkipThreshold(songId, connectedUserCount = null) {
 
 /**
  * Vote to skip the currently playing song
- * @param {number} userId - The ID of the user voting
+ * @param {number} userSpotifyId - The ID of the user voting
  * @param {number} songId - The ID of the song to skip
  * @returns {Promise<Object>} Object with vote info and threshold status
  */
-async function voteToSkip(userId, songId) {
+async function voteToSkip(userSpotifyId, songId) {
   try {
     // check if the user has already voted
-    const alreadyVoted = await Vote.hasUserVoted(userId, songId);
+    const alreadyVoted = await Vote.hasUserVoted(userSpotifyId, songId);
     if (alreadyVoted) {
       // return existing vote info without creating duplicate
       const voteCount = await Vote.getSkipVoteCount(songId);
@@ -92,7 +96,7 @@ async function voteToSkip(userId, songId) {
       };
     }
     // create the vote in the db
-    const vote = await Vote.voteToSkip(userId, songId);
+    const vote = await Vote.voteToSkip(userSpotifyId, songId);
 
     // get updated vote count and threshold status
     const voteCount = await Vote.getSkipVoteCount(songId);
@@ -124,14 +128,14 @@ async function voteToSkip(userId, songId) {
 
 /**
  * Remove a user's skip vote (could be optional, depending on implementation)
- * @param {number} userId - The ID of the user
+ * @param {number} userSpotifyId - The ID of the user
  * @param {number} songId - The ID of the song
  * @returns {Promise<Object>} Updated vote info
  */
-async function removeVote(userId, songId) {
+async function removeVote(userSpotifyId, songId) {
   try {
     // remove vote from db
-    await Vote.removeVote(userId, songId);
+    await Vote.removeVote(userSpotifyId, songId);
 
     // get updated voite count and threshold status
     const voteCount = await Vote.getSkipVoteCount(songId);
@@ -152,20 +156,20 @@ async function removeVote(userId, songId) {
 /**
  * Get current vote status for a song
  * @param {number} songId - The ID of the song
- * @param {number} userId - Optional user ID to check if they've voted
+ * @param {number} userSpotifyId - Optional user ID to check if they've voted
  * @returns {Promise<Object>} Vote status information
  */
-async function getVoteStatus(songId, userId = null) {
+async function getVoteStatus(songId, userSpotifyId = null) {
   try {
     // get vote count from db
     const voteCount = await Vote.getSkipVoteCount(songId);
     // check threshold status
     const thresholdStatus = await checkSkipThreshold(songId);
     await broadcastVoteStatus(songId);
-    // check if a specific user has voted (if userId provided)
+    // check if a specific user has voted (if userSpotifyId provided)
     let userHasVoted = null;
-    if (userId) {
-      userHasVoted = await Vote.hasUserVoted(userId, songId);
+    if (userSpotifyId) {
+      userHasVoted = await Vote.hasUserVoted(userSpotifyId, songId);
     }
     return {
       songId,

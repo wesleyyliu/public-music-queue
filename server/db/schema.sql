@@ -41,12 +41,11 @@ CREATE INDEX IF NOT EXISTS idx_queue_items_added_at ON queue_items(added_at);
 -- Voting table added in same style
 CREATE TABLE IF NOT EXISTS vote_skip (
   id SERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_spotify_id VARCHAR(255) NOT NULL REFERENCES users(spotify_id) ON DELETE CASCADE,
   song_id INTEGER NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE (user_id, song_id)
+  UNIQUE (user_spotify_id, song_id)
 );
 
--- Indexes for faster queries on vote_skip
-CREATE INDEX IF NOT EXISTS idx_vote_skip_user ON vote_skip(user_id);
+CREATE INDEX IF NOT EXISTS idx_vote_skip_user_spotify ON vote_skip(user_spotify_id);
 CREATE INDEX IF NOT EXISTS idx_vote_skip_song ON vote_skip(song_id);

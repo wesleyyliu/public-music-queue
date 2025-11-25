@@ -4,13 +4,13 @@ const votingService = require("../services/votingService");
 
 router.post("/skip", async (req, res) => {
   try {
-    const { userId, songId } = req.body;
+    const { userSpotifyId, songId } = req.body;
 
-    if (!userId || !songId) {
-      return res.status(400).json({ error: "userId and songId required" });
+    if (!userSpotifyId || !songId) {
+      return res.status(400).json({ error: "userSpotifyId and songId required" });
     }
-
-    const result = await votingService.voteToSkip(userId, songId);
+    
+    const result = await votingService.voteToSkip(userSpotifyId, songId);    
     res.json(result);
   } catch (err) {
     console.error("Error in /skip route:", err);

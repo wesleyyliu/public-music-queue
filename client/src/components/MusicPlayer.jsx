@@ -128,7 +128,7 @@ function SpotifyPlayer({
     try {
       console.log("USER OBJECT:", user);
       console.log("Sending skip vote:", {
-        userId: user.spotify_id,
+        userSpotifyId: user.spotify_id,
         songId: serverPlaybackState?.currentSong?.id,
         serverPlaybackState,
         user,
@@ -139,7 +139,7 @@ function SpotifyPlayer({
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          userId: user.spotify_id,
+          userSpotifyId: user.spotify_id,
           songId: serverPlaybackState?.currentSong?.id,
         }),
       });
