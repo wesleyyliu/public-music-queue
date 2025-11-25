@@ -2,7 +2,6 @@ const Vote = require("../models/Vote");
 const playbackStateManager = require("./playbackStateManager");
 const { getIO } = require("../websocket");
 
-
 const SKIP_THRESHOLD = parseFloat(process.env.SKIP_THRESHOLD || 0.5);
 
 /**
@@ -21,10 +20,8 @@ async function getConnectedUserCount() {
     // Fetch all connected sockets
     const sockets = await io.fetchSockets();
 
-    // Filter to only authenticated users (those with userSpotifyId in socket.data)
-    const authenticatedUsers = sockets.filter(
-      (socket) => socket.data.userSpotifyId
-    );
+    // Filter to only authenticated users (those with userId in socket.data)
+    const authenticatedUsers = sockets.filter((socket) => socket.data.userId);
 
     // Return the count
     return authenticatedUsers.length;
