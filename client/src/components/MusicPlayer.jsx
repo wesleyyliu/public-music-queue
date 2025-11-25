@@ -133,9 +133,14 @@ function SpotifyPlayer({
     if (!user || !serverPlaybackState?.currentSong) return;
 
     try {
-      const res = await fetch("http://127.0.0.1:3001/api/votes/skip", {
+      const res = await fetch("http://127.0.0.1:3001/api/vote/skip", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
+        body: JSON.stringify({
+          userSpotifyId: user.spotify_id,
+          songId: serverPlaybackState.currentSong.id,
+        }),
       });
 
       if (!res.ok) {
@@ -149,11 +154,11 @@ function SpotifyPlayer({
       const data = await res.json();
       console.log("Skip vote response:", data);
 
-      // Update local state with response
+      // Update local state with response data
       if (data.voteCount !== undefined) {
         setSkipStatus({
           voteCount: data.voteCount,
-          requiredVotes: data.requiredVotes || 1,
+          requiredVotes: data.requiredVotes || userCount || 1,
           thresholdReached: data.thresholdReached || false,
         });
       }
@@ -180,38 +185,16 @@ function SpotifyPlayer({
     return () => socket.off("vote:update", handler);
   }, [socket]);
 
-  // Fetch initial vote status when song changes
+  // Reset vote status when song changes
   useEffect(() => {
-    if (!user || !serverPlaybackState?.currentSong) {
+    if (!serverPlaybackState?.currentSong) {
       setSkipStatus({
         voteCount: 0,
-        requiredVotes: 1,
+        requiredVotes: userCount || 1,
         thresholdReached: false,
       });
-      return;
     }
-
-    const fetchVoteStatus = async () => {
-      try {
-        const response = await fetch("http://127.0.0.1:3001/api/votes/status", {
-          credentials: "include",
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setSkipStatus({
-            voteCount: data.voteCount || 0,
-            requiredVotes: data.requiredVotes || 1,
-            thresholdReached: data.thresholdReached || false,
-          });
-        }
-      } catch (err) {
-        console.error("Error fetching vote status:", err);
-      }
-    };
-
-    fetchVoteStatus();
-  }, [user, serverPlaybackState?.currentSong?.id]);
+  }, [serverPlaybackState?.currentSong?.id, userCount]);
 
   // Auto-sync when device becomes active
   useEffect(() => {
