@@ -101,22 +101,17 @@ function startPolling() {
   
   // Check every 500ms
   pollingInterval = setInterval(async () => {
-    if (!playbackState.currentSong) {
-      return;
-    }
-    
-    // If not playing, don't check (but still allow manual triggers)
-    if (!playbackState.isPlaying) {
+    if (!playbackState.isPlaying || !playbackState.currentSong) {
       return;
     }
     
     const elapsed = Date.now() - playbackState.startedAt;
     const duration = playbackState.currentSong.duration * 1000; // convert to ms
     const timeRemaining = duration - elapsed;
-    
-    // When less than 2 seconds remain OR song has finished, pop next song
-    if (timeRemaining <= 2000) {
-      console.log(`Song ending or finished (${Math.floor(timeRemaining / 1000)}s remaining), auto-popping next song...`);
+    console.log('Time remaining:', timeRemaining);
+    // When less than 2 seconds remain, pop next song
+    if (timeRemaining <= 2000 && timeRemaining > 0) {
+      console.log(`Song ending soon (${Math.floor(timeRemaining / 1000)}s remaining), auto-popping next song...`);
       
       // Prevent multiple triggers - mark as not playing
       playbackState.isPlaying = false;
@@ -125,8 +120,6 @@ function startPolling() {
         await popNextSongForAllUsers();
       } catch (error) {
         console.error('Error auto-popping next song:', error);
-        // Reset playing state on error so it can retry
-        playbackState.isPlaying = true;
       }
     }
   }, 500);
@@ -168,22 +161,11 @@ async function popNextSongForAllUsers() {
       return;
     }
     
-    // Validate that the song has required properties
-    if (!nextSong.spotifyUri) {
-      console.error('Next song missing spotifyUri:', nextSong);
-      throw new Error('Song missing required spotifyUri property');
-    }
-    
-    console.log(`Auto-advancing to next song: ${nextSong.title} by ${nextSong.artist}`);
-    
     // Get all connected users with Spotify authentication
     const userIds = await getConnectedUserIds();
     
     if (userIds.length === 0) {
       console.log('No authenticated users connected, cannot add to Spotify queue');
-      // Still update playback state even if no users connected
-      playbackState.currentSong = null;
-      playbackState.isPlaying = false;
       return;
     }
     
@@ -200,7 +182,7 @@ async function popNextSongForAllUsers() {
     
     await Promise.all(addPromises);
     
-    // Remove the song from our queue (using queue item ID)
+    // Remove the song from our queue
     await queueService.removeSong(nextSong.id);
     
     // Update playback state
@@ -212,11 +194,9 @@ async function popNextSongForAllUsers() {
       io.emit('queue:updated', updatedQueue);
     }
     
-    console.log(`Successfully queued and started: ${nextSong.title}`);
+    console.log(`Successfully queued: ${nextSong.title}`);
   } catch (error) {
     console.error('Error in popNextSongForAllUsers:', error);
-    // Reset playback state on error
-    playbackState.isPlaying = false;
     throw error;
   }
 }
