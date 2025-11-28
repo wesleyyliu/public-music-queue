@@ -7,6 +7,7 @@ import {
   X,
   RefreshCw,
 } from "lucide-react";
+import RecordPlayer from "../assets/recordplayer.svg"
 
 function MusicPlayer({
   socket,
@@ -253,7 +254,9 @@ function MusicPlayer({
 
       {/* Now Playing */}
       {serverPlaybackState?.currentSong ? (
-        <div className="mb-4 p-3 bg-black/30 rounded-md">
+        <div className="mb-4 p-3 glass-background rounded-md">
+          {/* Record player div */}
+          <img src={RecordPlayer} />
           <div className="text-xs text-gray-400 mb-1">Now Playing</div>
           <div className="text-sm font-medium text-white truncate">
             {serverPlaybackState.currentSong.title}
