@@ -539,7 +539,7 @@ function SpotifyPlayer({
         {/* Queue Section */}
         <div>
           <h3 className="text-lg font-semibold mb-2">
-            Queue ({queue.length} songs)
+            Queue ({queue.length-1} songs)
           </h3>
 
           {queue.length === 0 ? (
