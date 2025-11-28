@@ -1,13 +1,6 @@
 import { useState, useEffect } from "react";
-import {
-  Users,
-  Pause,
-  Play,
-  SkipForward,
-  X,
-  RefreshCw,
-} from "lucide-react";
-import RecordPlayer from "../assets/recordplayer.svg"
+import { Users, Pause, Play, SkipForward, X, RefreshCw } from "lucide-react";
+import RecordPlayer from "../assets/recordplayer.svg";
 
 function MusicPlayer({
   socket,
@@ -210,7 +203,11 @@ function MusicPlayer({
       currentTrack?.uri === serverPlaybackState?.currentSong?.spotifyUri;
 
     // If server has a song and we're NOT playing it, sync to it
-    if (serverPlaybackState?.currentSong && serverPlaybackState?.isPlaying && !isPlayingCorrectSong) {
+    if (
+      serverPlaybackState?.currentSong &&
+      serverPlaybackState?.isPlaying &&
+      !isPlayingCorrectSong
+    ) {
       console.log("Syncing to server because playing different song");
       await syncToServerPlayback();
     } else {
@@ -248,8 +245,12 @@ function MusicPlayer({
 
       {/* Current Room */}
       <div className="mb-3 text-center">
-        <div className="text-xs text-gray-400 uppercase tracking-wider">Room</div>
-        <div className="text-lg font-semibold text-white capitalize">{currentRoom}</div>
+        <div className="text-xs text-gray-400 uppercase tracking-wider">
+          Room
+        </div>
+        <div className="text-lg font-semibold text-white capitalize">
+          {currentRoom}
+        </div>
       </div>
 
       {/* Now Playing */}
@@ -263,17 +264,19 @@ function MusicPlayer({
               className="w-[210px] translate-x-1/2" // adjust as needed
             />
             {/* Album Art overlay */}
-            <img
-              src={currentTrack.album.images[0]?.url}
-              alt={currentTrack.album.name}
-              className="
-                absolute
-                w-48 h-48 rounded-lg
-                top-1/2 left-1/3
-                -translate-y-1/2 -translate-x-1/2
-                z-10
-              "
-            />
+            {currentTrack?.album?.images?.[0]?.url && (
+              <img
+                src={currentTrack.album.images[0].url}
+                alt={currentTrack.album.name || "Album Art"}
+                className="
+                  absolute
+                  w-48 h-48 rounded-lg
+                  top-1/2 left-1/3
+                  -translate-y-1/2 -translate-x-1/2
+                  z-10
+                "
+              />
+            )}
           </div>
 
           <div className="text-xs text-gray-400 mb-1">Now Playing</div>
@@ -334,8 +337,12 @@ function MusicPlayer({
                 className="flex items-center justify-between bg-black/20 rounded-md p-2 hover:bg-black/30 transition"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-white truncate">{song.title}</div>
-                  <div className="text-xs text-gray-400 truncate">{song.artist}</div>
+                  <div className="text-sm text-white truncate">
+                    {song.title}
+                  </div>
+                  <div className="text-xs text-gray-400 truncate">
+                    {song.artist}
+                  </div>
                 </div>
                 <button
                   onClick={() => onRemoveSong(song.id)}
@@ -351,24 +358,32 @@ function MusicPlayer({
 
       {/* Player Status */}
       {isAuthenticated && (
-        <div className={`mt-4 p-3 rounded-md border ${
-          isActive
-            ? 'bg-green-500/20 border-green-500/30'
-            : 'bg-yellow-500/20 border-yellow-500/30'
-        }`}>
+        <div
+          className={`mt-4 p-3 rounded-md border ${
+            isActive
+              ? "bg-green-500/20 border-green-500/30"
+              : "bg-yellow-500/20 border-yellow-500/30"
+          }`}
+        >
           <p className="text-xs font-medium mb-1">
-            Player Status: <span className={isActive ? 'text-green-300' : 'text-yellow-300'}>{playerStatus}</span>
+            Player Status:{" "}
+            <span className={isActive ? "text-green-300" : "text-yellow-300"}>
+              {playerStatus}
+            </span>
           </p>
           {!isActive && playerStatus === "Premium required" && (
             <p className="text-xs text-yellow-200 mt-2">
               ⚠️ Spotify Premium is required for web playback
             </p>
           )}
-          {!isActive && playerStatus !== "Premium required" && playerStatus !== "Not logged in" && (
-            <p className="text-xs text-yellow-200 mt-2">
-              💡 Tip: Make sure you have Spotify open on another device or wait for the web player to connect
-            </p>
-          )}
+          {!isActive &&
+            playerStatus !== "Premium required" &&
+            playerStatus !== "Not logged in" && (
+              <p className="text-xs text-yellow-200 mt-2">
+                💡 Tip: Make sure you have Spotify open on another device or
+                wait for the web player to connect
+              </p>
+            )}
         </div>
       )}
 
