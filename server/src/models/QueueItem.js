@@ -13,6 +13,7 @@ class QueueItem {
     const result = await pool.query(`
       SELECT 
         qi.id,
+        qi.song_id as "songId",
         qi.added_by as "addedBy",
         qi.added_at as "addedAt",
         s.title,

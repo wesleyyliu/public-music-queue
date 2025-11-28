@@ -61,5 +61,16 @@ router.post('/pop-to-spotify', requireAuth, async (req, res) => {
   }
 });
 
+// Clear playback state (for debugging/resetting)
+router.post('/clear-playback', requireAuth, async (req, res) => {
+  try {
+    playbackStateManager.clearPlaybackState();
+    res.json({ success: true, message: 'Playback state cleared' });
+  } catch (error) {
+    console.error('Clear playback error:', error);
+    res.status(500).json({ error: 'Failed to clear playback state', message: error.message });
+  }
+});
+
 module.exports = router;
 

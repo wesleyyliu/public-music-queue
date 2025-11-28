@@ -196,6 +196,14 @@ function SpotifyPlayer({
     }
   }, [serverPlaybackState?.currentSong?.id, userCount]);
 
+  // Reset hasSynced when the song ID changes (allows re-syncing to new songs)
+  useEffect(() => {
+    const currentSongId = serverPlaybackState?.currentSong?.id;
+    if (currentSongId !== undefined) {
+      setHasSynced(false);
+    }
+  }, [serverPlaybackState?.currentSong?.id]);
+
   // Auto-sync when device becomes active
   useEffect(() => {
     if (
@@ -310,10 +318,31 @@ function SpotifyPlayer({
     };
   }, [accessToken]);
 
-  const togglePlay = () => {
-    if (player) {
-      player.togglePlay();
+  const togglePlay = async () => {
+    if (!player) return;
+
+    // If there's no current track and no server playback state, trigger server to start
+    if (
+      !currentTrack &&
+      (!serverPlaybackState || !serverPlaybackState.currentSong)
+    ) {
+      console.log("No track available, triggering server to start playback...");
+      // Reset hasSynced to allow syncPlayback to run
+      setHasSynced(false);
+      // Call syncPlayback which will trigger server to start if needed
+      await syncPlayback();
+      return;
     }
+
+    // If there's a server playback state but we haven't synced, sync first
+    if (serverPlaybackState?.currentSong && !hasSynced) {
+      console.log("Syncing to server playback state before playing...");
+      await syncPlayback();
+      return;
+    }
+
+    // Otherwise, just toggle play/pause
+    player.togglePlay();
   };
 
   const skipNext = () => {

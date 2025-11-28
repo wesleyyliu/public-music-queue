@@ -1,5 +1,6 @@
 const spotifyService = require('./spotifyService');
 const queueService = require('./queueService');
+const Song = require('../models/Song');
 
 // In-memory playback state
 let playbackState = {
@@ -143,6 +144,13 @@ function stopPolling() {
  */
 async function popNextSongForAllUsers() {
   try {
+    // Delete the current song from songs table (if it exists)
+    // This will cascade delete from queue_items due to ON DELETE CASCADE
+    if (playbackState.currentSong && playbackState.currentSong.songId) {
+      console.log(`Deleting finished/skipped song from database: ${playbackState.currentSong.title} (song ID: ${playbackState.currentSong.songId})`);
+      await Song.deleteById(playbackState.currentSong.songId);
+    }
+    
     // Get the first song in the queue
     const nextSong = await queueService.getFirstSong();
     
@@ -182,10 +190,7 @@ async function popNextSongForAllUsers() {
     
     await Promise.all(addPromises);
     
-    // Remove the song from our queue
-    await queueService.removeSong(nextSong.id);
-    
-    // Update playback state
+    // Update playback state (nextSong becomes currentSong)
     startSong(nextSong);
     
     // Broadcast updated queue to all clients
@@ -212,12 +217,34 @@ async function playNext() {
   await popNextSongForAllUsers();
 }
 
+/**
+ * Clear the current playback state (useful for debugging/resetting)
+ */
+function clearPlaybackState() {
+  playbackState.currentSong = null;
+  playbackState.startedAt = null;
+  playbackState.isPlaying = false;
+  
+  console.log('Playback state cleared');
+  
+  // Broadcast cleared state to all clients
+  if (io) {
+    io.emit('playback:state', {
+      currentSong: null,
+      startedAt: null,
+      isPlaying: false
+    });
+  }
+}
+
 module.exports = {
   initialize,
   startSong,
   getPlaybackState,
   popNextSongForAllUsers,
   playNext,
+  skipToNextSong,
+  clearPlaybackState,
   stopPolling
 };
 

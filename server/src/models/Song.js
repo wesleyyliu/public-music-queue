@@ -25,6 +25,11 @@ class Song {
     const result = await pool.query('SELECT * FROM songs ORDER BY created_at DESC');
     return result.rows;
   }
+
+  static async deleteById(id) {
+    const result = await pool.query('DELETE FROM songs WHERE id = $1 RETURNING *', [id]);
+    return result.rows[0];
+  }
 }
 
 module.exports = Song;
