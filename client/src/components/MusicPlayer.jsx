@@ -256,7 +256,26 @@ function MusicPlayer({
       {serverPlaybackState?.currentSong ? (
         <div className="mb-4 p-3 glass-background rounded-md">
           {/* Record player div */}
-          <img src={RecordPlayer} />
+          <div className="relative flex flex-row items-center">
+            {/* Record Player */}
+            <img
+              src={RecordPlayer}
+              className="w-[210px] translate-x-1/2" // adjust as needed
+            />
+            {/* Album Art overlay */}
+            <img
+              src={currentTrack.album.images[0]?.url}
+              alt={currentTrack.album.name}
+              className="
+                absolute
+                w-48 h-48 rounded-lg
+                top-1/2 left-1/3
+                -translate-y-1/2 -translate-x-1/2
+                z-10
+              "
+            />
+          </div>
+
           <div className="text-xs text-gray-400 mb-1">Now Playing</div>
           <div className="text-sm font-medium text-white truncate">
             {serverPlaybackState.currentSong.title}
