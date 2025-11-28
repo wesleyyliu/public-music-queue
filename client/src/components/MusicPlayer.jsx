@@ -46,7 +46,7 @@ function SpotifyPlayer({
     >
       <SkipForward size={20} />
       <span className="text-sm font-semibold">
-        {skipStatus.voteCount} / {skipStatus.requiredVotes}
+        {skipStatus.voteCount} / {userCount}
       </span>
     </button>
   );
@@ -539,7 +539,7 @@ function SpotifyPlayer({
         {/* Queue Section */}
         <div>
           <h3 className="text-lg font-semibold mb-2">
-            Queue ({queue.length-1} songs)
+            Queue ({queue.length} songs)
           </h3>
 
           {queue.length === 0 ? (
