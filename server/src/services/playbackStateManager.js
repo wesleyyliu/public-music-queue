@@ -1,12 +1,13 @@
-const spotifyService = require('./spotifyService');
-const queueService = require('./queueService');
-const Song = require('../models/Song');
+const spotifyService = require("./spotifyService");
+const queueService = require("./queueService");
+const Song = require("../models/Song");
+const votingService = require("./votingService");
 
 // In-memory playback state
 let playbackState = {
-  currentSong: null,        // { id, title, artist, spotifyUri, duration, ... }
-  startedAt: null,          // timestamp when song started playing
-  isPlaying: false,         // whether music is currently playing
+  currentSong: null, // { id, title, artist, spotifyUri, duration, ... }
+  startedAt: null, // timestamp when song started playing
+  isPlaying: false, // whether music is currently playing
 };
 
 // Reference to socket.io instance
@@ -20,8 +21,8 @@ let pollingInterval = null;
  */
 function initialize(socketIO) {
   io = socketIO;
-  console.log('Playback state manager initialized');
-  
+  console.log("Playback state manager initialized");
+
   // Start polling for auto-pop
   startPolling();
 }
@@ -29,20 +30,34 @@ function initialize(socketIO) {
 /**
  * Start a song - updates state and broadcasts to all clients
  */
-function startSong(song) {
+async function startSong(song) {
   playbackState.currentSong = song;
   playbackState.startedAt = Date.now();
   playbackState.isPlaying = true;
-  
+
   console.log(`Started playing: ${song.title} by ${song.artist}`);
-  
+
   // Broadcast to all clients
   if (io) {
-    io.emit('playback:state', {
+    io.emit("playback:state", {
       currentSong: song,
       startedAt: playbackState.startedAt,
-      isPlaying: true
+      isPlaying: true,
     });
+
+    // Broadcast initial vote status for the new song (reset to 0)
+    // Use songId from the song object (which comes from queue_items.song_id)
+    try {
+      const songIdToUse = song.songId || song.id;
+      if (songIdToUse) {
+        console.log(
+          `Broadcasting initial vote status for new song: ${songIdToUse}`
+        );
+        await votingService.broadcastVoteStatus(songIdToUse);
+      }
+    } catch (error) {
+      console.error("Error broadcasting vote status for new song:", error);
+    }
   }
 }
 
@@ -55,18 +70,18 @@ function getPlaybackState() {
       currentSong: null,
       startedAt: null,
       isPlaying: false,
-      position: 0
+      position: 0,
     };
   }
-  
+
   const position = Date.now() - playbackState.startedAt;
-  
+
   return {
     currentSong: playbackState.currentSong,
     startedAt: playbackState.startedAt,
     isPlaying: playbackState.isPlaying,
     position: position,
-    duration: playbackState.currentSong.duration * 1000 // convert to ms
+    duration: playbackState.currentSong.duration * 1000, // convert to ms
   };
 }
 
@@ -77,17 +92,17 @@ async function getConnectedUserIds() {
   // This will need to be enhanced - for now we'll track users via socket metadata
   // For simplicity, we'll need to modify the WebSocket connection to store userId
   if (!io) return [];
-  
+
   const connectedUsers = [];
   const sockets = await io.fetchSockets();
-  console.log('Sockets:', sockets);
-  
+  console.log("Sockets:", sockets);
+
   for (const socket of sockets) {
     if (socket.data.userId) {
       connectedUsers.push(socket.data.userId);
     }
   }
-  
+
   return connectedUsers;
 }
 
@@ -99,33 +114,37 @@ function startPolling() {
   if (pollingInterval) {
     clearInterval(pollingInterval);
   }
-  
+
   // Check every 500ms
   pollingInterval = setInterval(async () => {
     if (!playbackState.isPlaying || !playbackState.currentSong) {
       return;
     }
-    
+
     const elapsed = Date.now() - playbackState.startedAt;
     const duration = playbackState.currentSong.duration * 1000; // convert to ms
     const timeRemaining = duration - elapsed;
-    console.log('Time remaining:', timeRemaining);
+    console.log("Time remaining:", timeRemaining);
     // When less than 2 seconds remain, pop next song
     if (timeRemaining <= 2000 && timeRemaining > 0) {
-      console.log(`Song ending soon (${Math.floor(timeRemaining / 1000)}s remaining), auto-popping next song...`);
-      
+      console.log(
+        `Song ending soon (${Math.floor(
+          timeRemaining / 1000
+        )}s remaining), auto-popping next song...`
+      );
+
       // Prevent multiple triggers - mark as not playing
       playbackState.isPlaying = false;
-      
+
       try {
         await popNextSongForAllUsers();
       } catch (error) {
-        console.error('Error auto-popping next song:', error);
+        console.error("Error auto-popping next song:", error);
       }
     }
   }, 500);
-  
-  console.log('Started playback polling');
+
+  console.log("Started playback polling");
 }
 
 /**
@@ -135,7 +154,7 @@ function stopPolling() {
   if (pollingInterval) {
     clearInterval(pollingInterval);
     pollingInterval = null;
-    console.log('Stopped playback polling');
+    console.log("Stopped playback polling");
   }
 }
 
@@ -147,61 +166,69 @@ async function popNextSongForAllUsers() {
     // Delete the current song from songs table (if it exists)
     // This will cascade delete from queue_items due to ON DELETE CASCADE
     if (playbackState.currentSong && playbackState.currentSong.songId) {
-      console.log(`Deleting finished/skipped song from database: ${playbackState.currentSong.title} (song ID: ${playbackState.currentSong.songId})`);
+      console.log(
+        `Deleting finished/skipped song from database: ${playbackState.currentSong.title} (song ID: ${playbackState.currentSong.songId})`
+      );
       await Song.deleteById(playbackState.currentSong.songId);
     }
-    
+
     // Get the first song in the queue
     const nextSong = await queueService.getFirstSong();
-    
+
     if (!nextSong) {
-      console.log('Queue is empty, no next song to play');
+      console.log("Queue is empty, no next song to play");
       playbackState.currentSong = null;
       playbackState.isPlaying = false;
-      
+
       if (io) {
-        io.emit('playback:state', {
+        io.emit("playback:state", {
           currentSong: null,
           startedAt: null,
-          isPlaying: false
+          isPlaying: false,
         });
       }
       return;
     }
-    
+
     // Get all connected users with Spotify authentication
     const userIds = await getConnectedUserIds();
-    
+
     if (userIds.length === 0) {
-      console.log('No authenticated users connected, cannot add to Spotify queue');
+      console.log(
+        "No authenticated users connected, cannot add to Spotify queue"
+      );
       return;
     }
-    
+
     console.log(`Adding song to Spotify queue for ${userIds.length} user(s)`);
-    
+
     // Add to each user's Spotify queue
-    const addPromises = userIds.map(userId => 
-      spotifyService.addToSpotifyQueue(userId, nextSong.spotifyUri)
-        .catch(error => {
-          console.error(`Failed to add song for user ${userId}:`, error.message);
+    const addPromises = userIds.map((userId) =>
+      spotifyService
+        .addToSpotifyQueue(userId, nextSong.spotifyUri)
+        .catch((error) => {
+          console.error(
+            `Failed to add song for user ${userId}:`,
+            error.message
+          );
           // Don't fail the whole operation if one user fails
         })
     );
-    
+
     await Promise.all(addPromises);
-    
+
     // Update playback state (nextSong becomes currentSong)
-    startSong(nextSong);
-    
+    await startSong(nextSong);
+
     // Broadcast updated queue to all clients
     if (io) {
       const updatedQueue = await queueService.getQueue();
-      io.emit('queue:updated', updatedQueue);
+      io.emit("queue:updated", updatedQueue);
     }
-    
+
     console.log(`Successfully queued: ${nextSong.title}`);
   } catch (error) {
-    console.error('Error in popNextSongForAllUsers:', error);
+    console.error("Error in popNextSongForAllUsers:", error);
     throw error;
   }
 }
@@ -212,7 +239,7 @@ async function popNextSongForAllUsers() {
 async function playNext() {
   // Stop current playback
   playbackState.isPlaying = false;
-  
+
   // Pop next song
   await popNextSongForAllUsers();
 }
@@ -224,15 +251,15 @@ function clearPlaybackState() {
   playbackState.currentSong = null;
   playbackState.startedAt = null;
   playbackState.isPlaying = false;
-  
-  console.log('Playback state cleared');
-  
+
+  console.log("Playback state cleared");
+
   // Broadcast cleared state to all clients
   if (io) {
-    io.emit('playback:state', {
+    io.emit("playback:state", {
       currentSong: null,
       startedAt: null,
-      isPlaying: false
+      isPlaying: false,
     });
   }
 }
@@ -245,6 +272,5 @@ module.exports = {
   playNext,
   skipToNextSong,
   clearPlaybackState,
-  stopPolling
+  stopPolling,
 };
-

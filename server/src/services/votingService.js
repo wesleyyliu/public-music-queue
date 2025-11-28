@@ -106,10 +106,11 @@ async function voteToSkip(userSpotifyId, songId) {
     // trigger skip if reached
     if (thresholdStatus.thresholdReached) {
       console.log(
-        `Skip threshold reached: ${thresholdStatus.voteCount}/${thresholdStatus.requiredVotes}`
+        `Skip threshold reached: ${thresholdStatus.voteCount}/${thresholdStatus.requiredVotes} - skipping song`
       );
 
       await Vote.clearSkipVotes(songId);
+      // playNext() will start the next song and broadcast its vote status
       await playbackStateManager.playNext();
     }
 

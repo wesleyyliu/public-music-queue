@@ -39,6 +39,19 @@ function SpotifyPlayer({
 
   const isAuthenticated = !!user;
 
+  const SkipVoteButton = ({ skipStatus, onVote }) => (
+    <button
+      onClick={onVote}
+      className="flex flex-col items-center justify-center gap-2 bg-transparent hover:opacity-80"
+    >
+      <SkipForward size={20} />
+      <span className="text-sm font-semibold">
+        {skipStatus.voteCount} / {skipStatus.requiredVotes}
+      </span>
+    </button>
+  );
+  
+
   // Listen for playback state updates from server
   useEffect(() => {
     if (!socket) return;
@@ -132,6 +145,15 @@ function SpotifyPlayer({
   const voteToSkip = async () => {
     if (!user || !serverPlaybackState?.currentSong) return;
 
+    // Use songId (from songs table) or id (fallback)
+    const songId =
+      serverPlaybackState.currentSong.songId ||
+      serverPlaybackState.currentSong.id;
+    if (!songId) {
+      console.error("No songId available for voting");
+      return;
+    }
+
     try {
       const res = await fetch("http://127.0.0.1:3001/api/vote/skip", {
         method: "POST",
@@ -139,7 +161,7 @@ function SpotifyPlayer({
         credentials: "include",
         body: JSON.stringify({
           userSpotifyId: user.spotify_id,
-          songId: serverPlaybackState.currentSong.id,
+          songId: songId,
         }),
       });
 
@@ -172,29 +194,96 @@ function SpotifyPlayer({
     if (!socket) return;
 
     const handler = (data) => {
-      console.log("Real-time vote update:", data);
+      console.log("Vote update received:", data);
 
+      // Get current song ID (try both songId and id)
+      const currentSongId =
+        serverPlaybackState?.currentSong?.songId ||
+        serverPlaybackState?.currentSong?.id;
+
+      // Only update if this vote update is for the current song (or if no songId specified, assume it's for current)
+      if (data.songId && currentSongId && data.songId !== currentSongId) {
+        console.log(
+          `Ignoring vote update for different song: ${data.songId} vs current: ${currentSongId}`
+        );
+        return;
+      }
+
+      console.log("Updating skip status from vote update:", data);
       setSkipStatus({
-        voteCount: data.voteCount || 0,
-        requiredVotes: data.requiredVotes || 1,
-        thresholdReached: data.thresholdReached || false,
+        voteCount: data.voteCount ?? 0,
+        requiredVotes: data.requiredVotes ?? userCount ?? 1,
+        thresholdReached: data.thresholdReached ?? false,
       });
     };
 
     socket.on("vote:update", handler);
     return () => socket.off("vote:update", handler);
-  }, [socket]);
+  }, [
+    socket,
+    serverPlaybackState?.currentSong?.songId,
+    serverPlaybackState?.currentSong?.id,
+    userCount,
+  ]);
 
-  // Reset vote status when song changes
+  // Fetch and reset vote status when song changes
   useEffect(() => {
-    if (!serverPlaybackState?.currentSong) {
+    const currentSongId =
+      serverPlaybackState?.currentSong?.songId ||
+      serverPlaybackState?.currentSong?.id;
+
+    if (!currentSongId) {
+      // No song playing, reset to defaults
       setSkipStatus({
         voteCount: 0,
         requiredVotes: userCount || 1,
         thresholdReached: false,
       });
+      return;
     }
-  }, [serverPlaybackState?.currentSong?.id, userCount]);
+
+    // Fetch vote status for the new song
+    const fetchVoteStatus = async () => {
+      try {
+        const response = await fetch(
+          `http://127.0.0.1:3001/api/vote/status?songId=${currentSongId}`,
+          {
+            credentials: "include",
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log("Fetched vote status for new song:", currentSongId, data);
+          setSkipStatus({
+            voteCount: data.voteCount ?? 0,
+            requiredVotes: data.requiredVotes ?? userCount ?? 1,
+            thresholdReached: data.thresholdReached ?? false,
+          });
+        } else {
+          // If fetch fails, reset to defaults
+          setSkipStatus({
+            voteCount: 0,
+            requiredVotes: userCount || 1,
+            thresholdReached: false,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching vote status:", error);
+        setSkipStatus({
+          voteCount: 0,
+          requiredVotes: userCount || 1,
+          thresholdReached: false,
+        });
+      }
+    };
+
+    fetchVoteStatus();
+  }, [
+    serverPlaybackState?.currentSong?.songId,
+    serverPlaybackState?.currentSong?.id,
+    userCount,
+  ]);
 
   // Reset hasSynced when the song ID changes (allows re-syncing to new songs)
   useEffect(() => {
@@ -426,21 +515,10 @@ function SpotifyPlayer({
 
                 <div className="flex flex-row justify-center items-center gap-6 font-medium">
                   <div className="flex flex-col items-center gap-2 text-white">
-                    <button
-                      onClick={voteToSkip}
-                      className="flex flex-col items-center justify-center gap-2 bg-transparent hover:opacity-80"
-                    >
-                      <SkipForward size={20} />
-                      <span className="text-sm font-semibold">
-                        {skipStatus.voteCount} / {skipStatus.requiredVotes}
-                      </span>
-                    </button>
-
-                    {skipStatus.thresholdReached && (
-                      <span className="text-xs text-green-400 font-medium">
-                        Threshold Reached! 🎉
-                      </span>
-                    )}
+                    <SkipVoteButton
+                      skipStatus={skipStatus}
+                      onVote={voteToSkip}
+                    />
                   </div>
                   <div className="flex flex-col items-center gap-2">
                     <ThumbsUp size={20} /> <span>250</span>
