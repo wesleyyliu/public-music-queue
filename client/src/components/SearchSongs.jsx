@@ -2,15 +2,78 @@ import { useState, useEffect, useRef } from "react";
 import { Search } from "lucide-react";
 import Toast from "./Toast";
 
-function SearchSongs({ user, currentRoom = 'general' }) {
+function SearchSongs({ user, currentRoom = 'general', onCooldownChange }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const debounceTimer = useRef(null);
+  const cooldownInterval = useRef(null);
 
   const isAuthenticated = !!user;
+
+  // Notify parent of cooldown changes
+  useEffect(() => {
+    if (onCooldownChange) {
+      onCooldownChange(cooldownSeconds);
+    }
+  }, [cooldownSeconds, onCooldownChange]);
+
+  // Check cooldown status on mount and when room changes
+  useEffect(() => {
+    const checkCooldown = async () => {
+      if (!isAuthenticated) return;
+
+      try {
+        const response = await fetch(
+          `http://127.0.0.1:3001/api/queue/cooldown?room=${currentRoom}`,
+          { credentials: "include" }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.remainingSeconds > 0) {
+            setCooldownSeconds(data.remainingSeconds);
+            startCooldownTimer(data.remainingSeconds);
+          }
+        }
+      } catch (err) {
+        console.error("Error checking cooldown:", err);
+      }
+    };
+
+    checkCooldown();
+  }, [isAuthenticated, currentRoom]);
+
+  // Cooldown countdown timer
+  const startCooldownTimer = (seconds) => {
+    if (cooldownInterval.current) {
+      clearInterval(cooldownInterval.current);
+    }
+
+    setCooldownSeconds(seconds);
+
+    cooldownInterval.current = setInterval(() => {
+      setCooldownSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(cooldownInterval.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (cooldownInterval.current) {
+        clearInterval(cooldownInterval.current);
+      }
+    };
+  }, []);
 
   // Debounced search logic
   useEffect(() => {
@@ -76,6 +139,14 @@ function SearchSongs({ user, currentRoom = 'general' }) {
       return;
     }
 
+    if (cooldownSeconds > 0) {
+      setToast({
+        message: `Please wait ${cooldownSeconds} seconds before adding another song`,
+        type: "error",
+      });
+      return;
+    }
+
     try {
       const response = await fetch("http://127.0.0.1:3001/api/queue/add", {
         method: "POST",
@@ -84,15 +155,30 @@ function SearchSongs({ user, currentRoom = 'general' }) {
         body: JSON.stringify({ track, room: currentRoom }),
       });
 
-      if (!response.ok) throw new Error("Failed to add song to queue");
-
       const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 429 && data.remainingSeconds) {
+          startCooldownTimer(data.remainingSeconds);
+          setToast({
+            message: `Please wait ${data.remainingSeconds} seconds before adding another song`,
+            type: "error",
+          });
+        } else {
+          throw new Error(data.message || "Failed to add song to queue");
+        }
+        return;
+      }
+
       console.log("Added to queue:", data);
+
+      // Start cooldown timer for 15 seconds
+      startCooldownTimer(15);
 
       setToast({ message: `Added "${track.name}" to ${currentRoom} queue!`, type: "success" });
     } catch (err) {
       console.error("Add to queue error:", err);
-      setToast({ message: "Failed to add song to queue", type: "error" });
+      setToast({ message: err.message || "Failed to add song to queue", type: "error" });
     }
   };
 

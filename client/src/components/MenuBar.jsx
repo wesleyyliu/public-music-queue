@@ -15,6 +15,7 @@ const AVAILABLE_ROOMS = [
 
 function MenuBar({ user, currentRoom, onLogin, onLogout, onRoomChange }) {
   const [showRoomDropdown, setShowRoomDropdown] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
   const currentRoomName = AVAILABLE_ROOMS.find(r => r.id === currentRoom)?.name || 'General';
 
@@ -23,15 +24,27 @@ function MenuBar({ user, currentRoom, onLogin, onLogout, onRoomChange }) {
     setShowRoomDropdown(false);
   };
 
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="flex items-center gap-3">
       {/* Search Bar */}
-      <SearchSongs user={user} currentRoom={currentRoom} />
+      <SearchSongs
+        user={user}
+        currentRoom={currentRoom}
+        onCooldownChange={setCooldownSeconds}
+      />
 
       {/* Timer */}
-      <div className="flex items-center gap-2 glass-background rounded-md px-3 py-2 text-gray-300">
-        <Clock size={16} className="text-gray-400" />
-        <span className="text-sm">0:00</span>
+      <div className={`flex items-center gap-2 glass-background rounded-md px-3 py-2 ${
+        cooldownSeconds > 0 ? 'text-yellow-300' : 'text-gray-300'
+      }`}>
+        <Clock size={16} className={cooldownSeconds > 0 ? 'text-yellow-400' : 'text-gray-400'} />
+        <span className="text-sm">{formatTime(cooldownSeconds)}</span>
       </div>
 
       {/* Room/Genre Selector */}
