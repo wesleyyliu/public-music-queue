@@ -41,3 +41,11 @@ CREATE INDEX IF NOT EXISTS idx_queue_items_added_at ON queue_items(added_at);
 CREATE INDEX IF NOT EXISTS idx_queue_items_room ON queue_items(room);
 CREATE INDEX IF NOT EXISTS idx_queue_items_room_added_at ON queue_items(room, added_at);
 
+-- User cooldowns table (for rate limiting song additions)
+CREATE TABLE IF NOT EXISTS user_cooldowns (
+  user_id VARCHAR(255) NOT NULL,
+  room VARCHAR(100) NOT NULL,
+  last_add_time TIMESTAMP NOT NULL,
+  PRIMARY KEY (user_id, room)
+);
+
