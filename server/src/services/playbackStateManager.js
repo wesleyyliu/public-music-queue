@@ -270,7 +270,6 @@ module.exports = {
   getPlaybackState,
   popNextSongForAllUsers,
   playNext,
-  skipToNextSong,
   clearPlaybackState,
   stopPolling,
 };
