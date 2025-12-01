@@ -102,6 +102,13 @@ router.post('/add', requireAuth, async (req, res) => {
       [userId, room]
     );
 
+    // Check if there's no current song playing and auto-start if needed
+    const currentPlaybackState = playbackStateManager.getPlaybackState(room);
+    if (!currentPlaybackState.isPlaying) {
+      console.log(`[${room}] No song currently playing, auto-starting playback...`);
+      await playbackStateManager.playNext(room);
+    }
+
     // Broadcast updated queue to all connected clients in the room via WebSocket
     const io = getIO();
     const updatedQueue = await queueService.getQueue(room);
