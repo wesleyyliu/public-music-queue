@@ -18,7 +18,6 @@ function MusicPlayer({
   const [currentTrack, setCurrentTrack] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [serverPlaybackState, setServerPlaybackState] = useState(null);
-  const [playerStatus, setPlayerStatus] = useState("Not initialized");
 
   const isAuthenticated = !!user;
 
@@ -125,11 +124,8 @@ function MusicPlayer({
   // Initialize Spotify Web Playback SDK
   useEffect(() => {
     if (!accessToken || !isAuthenticated) {
-      setPlayerStatus("Not logged in");
       return;
     }
-
-    setPlayerStatus("Loading Spotify SDK...");
 
     const script = document.createElement("script");
     script.src = "https://sdk.scdn.co/spotify-player.js";
@@ -137,8 +133,6 @@ function MusicPlayer({
     document.body.appendChild(script);
 
     window.onSpotifyWebPlaybackSDKReady = () => {
-      setPlayerStatus("Initializing player...");
-
       const player = new window.Spotify.Player({
         name: "Public Music Queue Web Player",
         getOAuthToken: (cb) => cb(accessToken),
@@ -149,28 +143,23 @@ function MusicPlayer({
         console.log("✅ Spotify Player Ready with Device ID:", device_id);
         setDeviceId(device_id);
         setIsActive(true);
-        setPlayerStatus("Ready");
       });
 
       player.addListener("not_ready", ({ device_id }) => {
         console.log("❌ Device ID has gone offline", device_id);
-        setPlayerStatus("Device offline");
         setIsActive(false);
       });
 
       player.addListener("initialization_error", ({ message }) => {
         console.error("Initialization Error:", message);
-        setPlayerStatus(`Error: ${message}`);
       });
 
       player.addListener("authentication_error", ({ message }) => {
         console.error("Authentication Error:", message);
-        setPlayerStatus(`Auth error: ${message}`);
       });
 
       player.addListener("account_error", ({ message }) => {
         console.error("Account Error:", message);
-        setPlayerStatus("Premium required");
       });
 
       player.addListener("playback_error", ({ message }) => {
@@ -183,7 +172,6 @@ function MusicPlayer({
         setIsPaused(state.paused);
       });
 
-      setPlayerStatus("Connecting...");
       player.connect();
       setPlayer(player);
     };
@@ -355,37 +343,6 @@ function MusicPlayer({
           )}
         </div>
       </div>
-
-      {/* Player Status */}
-      {isAuthenticated && (
-        <div
-          className={`mt-4 p-3 rounded-md border ${
-            isActive
-              ? "bg-green-500/20 border-green-500/30"
-              : "bg-yellow-500/20 border-yellow-500/30"
-          }`}
-        >
-          <p className="text-xs font-medium mb-1">
-            Player Status:{" "}
-            <span className={isActive ? "text-green-300" : "text-yellow-300"}>
-              {playerStatus}
-            </span>
-          </p>
-          {!isActive && playerStatus === "Premium required" && (
-            <p className="text-xs text-yellow-200 mt-2">
-              ⚠️ Spotify Premium is required for web playback
-            </p>
-          )}
-          {!isActive &&
-            playerStatus !== "Premium required" &&
-            playerStatus !== "Not logged in" && (
-              <p className="text-xs text-yellow-200 mt-2">
-                💡 Tip: Make sure you have Spotify open on another device or
-                wait for the web player to connect
-              </p>
-            )}
-        </div>
-      )}
 
       {/* Login Prompt */}
       {!isAuthenticated && (
