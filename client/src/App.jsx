@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { io } from "socket.io-client";
 import Scene from "./components/Scene";
 import OverlayUI from "./components/UIOverlay";
+import Toast from "./components/Toast";
 
 function App() {
   const [socket, setSocket] = useState(null);
@@ -10,6 +11,7 @@ function App() {
   const [queue, setQueue] = useState([]);
   const [user, setUser] = useState(null);
   const [currentRoom, setCurrentRoom] = useState('general');
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     // Check for session and fetch user info
@@ -31,7 +33,8 @@ function App() {
     fetchUser();
 
     // Connect to server
-    const newSocket = io("http://127.0.0.1:3001");
+    const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:3001";
+    const newSocket = io(apiUrl);
 
     newSocket.on("connect", () => {
       console.log("Connected to server!");
@@ -105,6 +108,10 @@ function App() {
     setCurrentRoom(newRoom);
   };
 
+  const showToast = (message, type = "info") => {
+    setToast({ message, type });
+  };
+
   return (
     <div
       style={{
@@ -128,7 +135,17 @@ function App() {
         onLogin={handleLogin}
         onLogout={handleLogout}
         onRoomChange={handleRoomChange}
+        onShowToast={showToast}
       />
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

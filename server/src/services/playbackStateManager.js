@@ -1,5 +1,6 @@
 const spotifyService = require('./spotifyService');
 const queueService = require('./queueService');
+const voteService = require('./voteService');
 
 // In-memory playback state per room
 // Map structure: { roomName: { currentSong, startedAt, isPlaying } }
@@ -41,8 +42,19 @@ function initialize(socketIO) {
  * @param {Object} song - Song object
  * @param {string} room - Room name (default: 'general')
  */
-function startSong(song, room = 'general') {
+async function startSong(song, room = 'general') {
   const roomState = getRoomState(room);
+
+  // Clear votes for previous song if any
+  if (roomState.currentSong && roomState.currentSong.spotifyId) {
+    await voteService.clearSkipVotes(room, roomState.currentSong.spotifyId);
+  }
+
+  // Clear votes for the new song too (in case it was re-queued)
+  if (song.spotifyId) {
+    await voteService.clearSkipVotes(room, song.spotifyId);
+  }
+
   roomState.currentSong = song;
   roomState.startedAt = Date.now();
   roomState.isPlaying = true;
@@ -212,7 +224,7 @@ async function popNextSongForAllUsers(room = 'general') {
     await queueService.removeSong(nextSong.id);
 
     // Update playback state for this room
-    startSong(nextSong, room);
+    await startSong(nextSong, room);
 
     // Broadcast updated queue to all clients in the room
     if (io) {

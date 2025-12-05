@@ -4,7 +4,6 @@ import MusicPlayer from "./MusicPlayer";
 
 export default function OverlayUI({
   socket,
-  connected,
   userCount,
   queue,
   user,
@@ -13,6 +12,7 @@ export default function OverlayUI({
   onLogin,
   onLogout,
   onRoomChange,
+  onShowToast,
 }) {
   return (
     <>
@@ -30,12 +30,12 @@ export default function OverlayUI({
         <MusicPlayer
           key={user?.spotify_id}
           socket={socket}
-          connected={connected}
           user={user}
           userCount={userCount}
           queue={queue}
           currentRoom={currentRoom}
           onRemoveSong={onRemoveSong}
+          onShowToast={onShowToast}
         />
       </div>
     </>

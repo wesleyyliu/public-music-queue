@@ -1,6 +1,7 @@
 const { Server } = require('socket.io');
 const queueService = require('../services/queueService');
 const playbackStateManager = require('../services/playbackStateManager');
+const queueReorderService = require('../services/queueReorderService');
 
 let io;
 
@@ -15,6 +16,9 @@ function initSocketServer(httpServer) {
 
   // Initialize playback state manager
   playbackStateManager.initialize(io);
+
+  // Start queue reordering for default room
+  queueReorderService.startReorderingForRoom('general', () => io);
 
   io.on('connection', async (socket) => {
     console.log('Client connected:', socket.id);
@@ -33,6 +37,12 @@ function initSocketServer(httpServer) {
       socket.join(room);
       socket.data.room = room;
       console.log(`Socket ${socket.id} joined room: ${room}`);
+
+      // Start reordering service for this room if not already started
+      const status = queueReorderService.getStatus();
+      if (!status.activeRooms.includes(room)) {
+        queueReorderService.startReorderingForRoom(room, () => io);
+      }
 
       // Send current queue for this room
       const currentQueue = await queueService.getQueue(room);
@@ -122,5 +132,11 @@ function getIO() {
   return io;
 }
 
-module.exports = { initSocketServer, getIO };
+async function getRoomUserCount(room) {
+  if (!io) return 0;
+  const roomSockets = await io.in(room).fetchSockets();
+  return roomSockets.length;
+}
+
+module.exports = { initSocketServer, getIO, getRoomUserCount };
 
