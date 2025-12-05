@@ -89,6 +89,10 @@ const callback = async (req, res) => {
     req.session.userId = user.spotify_id;
     req.session.displayName = user.display_name;
 
+    console.log('Session saved:', req.session.userId, req.session.displayName);
+    console.log('Session ID:', req.sessionID);
+    console.log('Redirecting to:', CLIENT_URL);
+
     // Redirect back to client - no sensitive data in URL
     res.redirect(CLIENT_URL);
 
@@ -100,7 +104,11 @@ const callback = async (req, res) => {
 
 // Get current user info from session
 const getCurrentUser = (req, res) => {
+  console.log('getCurrentUser - Session ID:', req.sessionID);
+  console.log('getCurrentUser - Session data:', req.session);
+
   if (!req.session.userId) {
+    console.log('No userId in session');
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
