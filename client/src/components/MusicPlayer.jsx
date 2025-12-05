@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, Pause, Play, RefreshCw, SkipForward, ThumbsUp, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Users, Pause, Play, RefreshCw, SkipForward, ThumbsUp, ThumbsDown, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import RecordPlayer from "../assets/recordplayer.svg";
 
@@ -23,6 +23,8 @@ function MusicPlayer({
   const [skipVotePercentage, setSkipVotePercentage] = useState(0);
   const [queueVotes, setQueueVotes] = useState({});
   const [recentlyReordered, setRecentlyReordered] = useState(false);
+  const [currentPosition, setCurrentPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
 
   const isAuthenticated = !!user;
 
@@ -69,6 +71,12 @@ function MusicPlayer({
         console.log(
           `✅ Synced to position: ${Math.floor(position_ms / 1000)}s`
         );
+        // Update progress bar immediately after sync
+        const state = await player.getCurrentState();
+        if (state) {
+          setCurrentPosition(state.position);
+          setDuration(state.duration);
+        }
       } else {
         const error = await response.text();
         console.error("Failed to sync playback:", error);
@@ -228,6 +236,8 @@ function MusicPlayer({
         if (!state) return;
         setCurrentTrack(state.track_window.current_track);
         setIsPaused(state.paused);
+        setCurrentPosition(state.position);
+        setDuration(state.duration);
       });
 
       player.connect();
@@ -310,6 +320,21 @@ function MusicPlayer({
 
     fetchSkipVoteStatus();
   }, [serverPlaybackState?.currentSong, currentRoom, isAuthenticated]);
+
+  // Update position in real-time while playing
+  useEffect(() => {
+    if (!player || isPaused || !isActive) return;
+
+    const interval = setInterval(async () => {
+      const state = await player.getCurrentState();
+      if (state) {
+        setCurrentPosition(state.position);
+        setDuration(state.duration);
+      }
+    }, 100); // Update every 100ms for smooth progress
+
+    return () => clearInterval(interval);
+  }, [player, isPaused, isActive]);
 
   // Fetch queue votes when queue changes
   useEffect(() => {
@@ -407,6 +432,13 @@ function MusicPlayer({
     }
   };
 
+  const formatTime = (ms) => {
+    const seconds = Math.floor(ms / 1000);
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="glass-background rounded-lg p-4 w-96 shadow-xl">
       {/* Header */}
@@ -462,11 +494,25 @@ function MusicPlayer({
             )}
           </div>
 
+          {/* Progress Bar */}
+          <div className="mt-3 mb-3">
+            <div className="flex justify-between text-xs text-gray-400 mb-1">
+              <span>{formatTime(currentPosition)}</span>
+              <span>{formatTime(duration)}</span>
+            </div>
+            <div className="w-full bg-white/10 rounded-full h-1.5">
+              <div
+                className="bg-[#E33BA9] h-1.5 rounded-full transition-all duration-100"
+                style={{ width: `${duration > 0 ? (currentPosition / duration) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+
           {/* Song info with vote button */}
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
               <div className="text-xs text-gray-400 mb-1">Now Playing</div>
-              <div className="text-sm font-medium text-white truncate">
+              <div className="text-base font-medium text-white truncate">
                 {serverPlaybackState.currentSong.title}
               </div>
               <div className="text-xs text-gray-400 truncate">
@@ -482,7 +528,7 @@ function MusicPlayer({
                   className="transition hover:scale-110"
                   title={hasVotedToSkip ? "Remove skip vote" : "Vote to skip"}
                 >
-                  <SkipForward size={18} className={hasVotedToSkip ? "text-red-400" : "text-gray-400"} />
+                  <SkipForward size={20} className={hasVotedToSkip ? "text-red-400" : "text-gray-400"} />
                 </button>
                 <div className="text-xs text-gray-400 mt-0.5">
                   {skipVoteCount}
@@ -582,7 +628,7 @@ function MusicPlayer({
                           className="transition hover:scale-110"
                           title="Downvote"
                         >
-                          <SkipForward
+                          <ThumbsDown
                             size={16}
                             className={userVote === 'downvote' ? "text-red-400" : "text-gray-400"}
                           />
