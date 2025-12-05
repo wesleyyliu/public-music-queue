@@ -13,11 +13,14 @@ function App() {
   const [currentRoom, setCurrentRoom] = useState('general');
   const [toast, setToast] = useState(null);
 
+  // Get API URL from environment variable
+  const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:3001";
+
   useEffect(() => {
     // Check for session and fetch user info
     const fetchUser = async () => {
       try {
-        const response = await fetch("http://127.0.0.1:3001/api/auth/me", {
+        const response = await fetch(`${API_URL}/api/auth/me`, {
           credentials: "include", // Important: send cookies with request
         });
 
@@ -33,8 +36,7 @@ function App() {
     fetchUser();
 
     // Connect to server
-    const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:3001";
-    const newSocket = io(apiUrl);
+    const newSocket = io(API_URL);
 
     newSocket.on("connect", () => {
       console.log("Connected to server!");
@@ -89,12 +91,12 @@ function App() {
   };
 
   const handleLogin = () => {
-    window.location.href = "http://127.0.0.1:3001/api/auth/spotify";
+    window.location.href = `${API_URL}/api/auth/spotify`;
   };
 
   const handleLogout = async () => {
     try {
-      await fetch("http://127.0.0.1:3001/api/auth/logout", {
+      await fetch(`${API_URL}/api/auth/logout`, {
         method: "POST",
         credentials: "include",
       });
