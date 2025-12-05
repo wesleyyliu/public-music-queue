@@ -1,7 +1,7 @@
 services:
   # Backend API Server
   - type: web
-    name: music-queue-api
+    name: qed-up-api
     runtime: node
     region: oregon
     plan: free
@@ -29,7 +29,7 @@ services:
 
   # Frontend Static Site
   - type: web
-    name: music-queue-client
+    name: qed-up
     runtime: static
     buildCommand: cd client && npm install && npm run build
     staticPublishPath: ./client/dist
@@ -43,7 +43,7 @@ services:
 
 # PostgreSQL Database
 databases:
-  - name: music-queue-db
-    databaseName: musicqueue
+  - name: qed-up-db
+    databaseName: qedup
     plan: free
     region: oregon
