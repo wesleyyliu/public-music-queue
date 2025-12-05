@@ -28,7 +28,8 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production', // true in production (requires HTTPS)
     httpOnly: true, // prevents JavaScript access to cookie
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' required for cross-site cookies in production
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined // Share cookie across subdomains
   }
 }));
 
