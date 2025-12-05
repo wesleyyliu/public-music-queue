@@ -91,6 +91,31 @@ router.post('/add', requireAuth, async (req, res) => {
       }
     }
 
+    // Check if song already exists in the queue
+    const currentQueue = await queueService.getQueue(room);
+    console.log(`[${room}] Checking for duplicates. Track ID: ${track.id}`);
+    console.log(`[${room}] Current queue Spotify IDs:`, currentQueue.map(s => s.spotifyId));
+
+    const isDuplicate = currentQueue.some(song => song.spotifyId === track.id);
+
+    if (isDuplicate) {
+      console.log(`[${room}] Duplicate detected! Song already in queue.`);
+      return res.status(409).json({
+        error: 'Song already in queue',
+        message: 'This song is already in the queue'
+      });
+    }
+
+    // Check if song is currently playing
+    const playbackState = playbackStateManager.getPlaybackState(room);
+    if (playbackState.currentSong && playbackState.currentSong.spotifyId === track.id) {
+      console.log(`[${room}] Duplicate detected! Song is currently playing.`);
+      return res.status(409).json({
+        error: 'Song currently playing',
+        message: 'This song is currently playing'
+      });
+    }
+
     const queueItem = await queueService.addSpotifySong(track, userId, room);
 
     // Update cooldown timestamp

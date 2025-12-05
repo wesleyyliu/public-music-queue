@@ -49,3 +49,16 @@ CREATE TABLE IF NOT EXISTS user_cooldowns (
   PRIMARY KEY (user_id, room)
 );
 
+-- Skip votes table (for voting to skip currently playing song)
+CREATE TABLE IF NOT EXISTS skip_votes (
+  id SERIAL PRIMARY KEY,
+  user_id VARCHAR(255) NOT NULL,
+  room VARCHAR(100) NOT NULL,
+  song_spotify_id VARCHAR(255) NOT NULL,
+  voted_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE (user_id, room, song_spotify_id)
+);
+
+-- Index for faster vote lookups by room and song
+CREATE INDEX IF NOT EXISTS idx_skip_votes_room_song ON skip_votes(room, song_spotify_id);
+

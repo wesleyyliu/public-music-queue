@@ -122,5 +122,11 @@ function getIO() {
   return io;
 }
 
-module.exports = { initSocketServer, getIO };
+async function getRoomUserCount(room) {
+  if (!io) return 0;
+  const roomSockets = await io.in(room).fetchSockets();
+  return roomSockets.length;
+}
+
+module.exports = { initSocketServer, getIO, getRoomUserCount };
 

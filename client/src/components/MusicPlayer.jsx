@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
-import { Users, Pause, Play, SkipForward, X, RefreshCw } from "lucide-react";
+import { Users, Pause, Play, X, RefreshCw, ThumbsDown } from "lucide-react";
 import RecordPlayer from "../assets/recordplayer.svg";
 
 function MusicPlayer({
   socket,
-  connected,
   user,
   userCount,
   queue,
   currentRoom,
   onRemoveSong,
+  onShowToast,
 }) {
   const [player, setPlayer] = useState(null);
   const [deviceId, setDeviceId] = useState(null);
@@ -18,6 +18,9 @@ function MusicPlayer({
   const [currentTrack, setCurrentTrack] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [serverPlaybackState, setServerPlaybackState] = useState(null);
+  const [skipVoteCount, setSkipVoteCount] = useState(0);
+  const [hasVotedToSkip, setHasVotedToSkip] = useState(false);
+  const [skipVotePercentage, setSkipVotePercentage] = useState(0);
 
   const isAuthenticated = !!user;
 
@@ -80,10 +83,32 @@ function MusicPlayer({
     socket.on("playback:state", (state) => {
       console.log("Received playback state from server:", state);
       setServerPlaybackState(state);
+      // Reset vote state when song changes
+      setSkipVoteCount(0);
+      setHasVotedToSkip(false);
+      setSkipVotePercentage(0);
+    });
+
+    socket.on("vote:updated", (voteData) => {
+      console.log("Received vote update:", voteData);
+      setSkipVoteCount(voteData.voteCount);
+      setSkipVotePercentage(voteData.percentage);
+    });
+
+    socket.on("song:skipped", (data) => {
+      console.log("Song skipped via vote:", data);
+      if (onShowToast) {
+        onShowToast(
+          `Song skipped! ${data.voteCount}/${data.userCount} users voted to skip`,
+          "info"
+        );
+      }
     });
 
     return () => {
       socket.off("playback:state");
+      socket.off("vote:updated");
+      socket.off("song:skipped");
     };
   }, [socket]);
 
@@ -205,18 +230,53 @@ function MusicPlayer({
     }
   };
 
-  const skipToNext = async () => {
+  const toggleSkipVote = async () => {
+    if (!isAuthenticated) return;
+
     try {
-      await fetch("http://127.0.0.1:3001/api/queue/pop-to-spotify", {
-        method: "POST",
+      const method = hasVotedToSkip ? "DELETE" : "POST";
+      const response = await fetch("http://127.0.0.1:3001/api/vote/skip", {
+        method,
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ room: currentRoom }),
       });
+
+      if (response.ok) {
+        const data = await response.json();
+        setHasVotedToSkip(data.voted);
+        setSkipVoteCount(data.voteCount);
+        setSkipVotePercentage(data.percentage);
+      }
     } catch (error) {
-      console.error("Error skipping to next:", error);
+      console.error("Error toggling skip vote:", error);
     }
   };
+
+  // Fetch initial skip vote status when song changes
+  useEffect(() => {
+    if (!serverPlaybackState?.currentSong || !isAuthenticated) return;
+
+    const fetchSkipVoteStatus = async () => {
+      try {
+        const response = await fetch(
+          `http://127.0.0.1:3001/api/vote/skip/status?room=${currentRoom}`,
+          { credentials: "include" }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setHasVotedToSkip(data.hasVoted);
+          setSkipVoteCount(data.voteCount);
+          setSkipVotePercentage(data.percentage);
+        }
+      } catch (error) {
+        console.error("Error fetching skip vote status:", error);
+      }
+    };
+
+    fetchSkipVoteStatus();
+  }, [serverPlaybackState?.currentSong, currentRoom, isAuthenticated]);
 
   return (
     <div className="glass-background rounded-lg p-4 w-96 shadow-xl">
@@ -226,19 +286,25 @@ function MusicPlayer({
           <Users size={16} className="text-gray-400" />
           <span className="text-sm text-gray-300">{userCount} online</span>
         </div>
-        <div className="text-xs text-gray-400">
-          {connected ? "🟢 Connected" : "🔴 Disconnected"}
-        </div>
-      </div>
-
-      {/* Current Room */}
-      <div className="mb-3 text-center">
-        <div className="text-xs text-gray-400 uppercase tracking-wider">
-          Room
-        </div>
-        <div className="text-lg font-semibold text-white capitalize">
-          {currentRoom}
-        </div>
+        {/* Control buttons */}
+        {isAuthenticated && isActive && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={togglePlay}
+              className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition"
+              title="Play/Pause"
+            >
+              {isPaused ? <Play size={16} /> : <Pause size={16} />}
+            </button>
+            <button
+              onClick={syncToServerPlayback}
+              className="bg-blue-500/20 hover:bg-blue-500/30 p-2 rounded-full transition border border-blue-500/30"
+              title="Sync to room playback"
+            >
+              <RefreshCw size={16} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Now Playing */}
@@ -249,7 +315,7 @@ function MusicPlayer({
             {/* Record Player */}
             <img
               src={RecordPlayer}
-              className="w-[210px] translate-x-1/2" // adjust as needed
+              className="w-[210px] translate-x-1/2"
             />
             {/* Album Art overlay */}
             {currentTrack?.album?.images?.[0]?.url && (
@@ -267,44 +333,38 @@ function MusicPlayer({
             )}
           </div>
 
-          <div className="text-xs text-gray-400 mb-1">Now Playing</div>
-          <div className="text-sm font-medium text-white truncate">
-            {serverPlaybackState.currentSong.title}
-          </div>
-          <div className="text-xs text-gray-400 truncate">
-            {serverPlaybackState.currentSong.artist}
+          {/* Song info with vote button */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-gray-400 mb-1">Now Playing</div>
+              <div className="text-sm font-medium text-white truncate">
+                {serverPlaybackState.currentSong.title}
+              </div>
+              <div className="text-xs text-gray-400 truncate">
+                {serverPlaybackState.currentSong.artist}
+              </div>
+            </div>
+
+            {/* Skip Vote Button - compact */}
+            {isAuthenticated && (
+              <div className="flex flex-col items-center flex-shrink-0">
+                <button
+                  onClick={toggleSkipVote}
+                  className="transition hover:scale-110"
+                  title={hasVotedToSkip ? "Remove skip vote" : "Vote to skip"}
+                >
+                  <ThumbsDown size={18} className={hasVotedToSkip ? "text-red-400" : "text-gray-400"} />
+                </button>
+                <div className="text-xs text-gray-400 mt-0.5">
+                  {skipVoteCount}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       ) : (
         <div className="mb-4 p-3 bg-black/30 rounded-md text-center text-gray-400 text-sm">
           No song playing
-        </div>
-      )}
-
-      {/* Controls */}
-      {isAuthenticated && isActive && (
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <button
-            onClick={togglePlay}
-            className="bg-white/10 hover:bg-white/20 p-3 rounded-full transition"
-            title="Play/Sync to current room"
-          >
-            {isPaused ? <Play size={20} /> : <Pause size={20} />}
-          </button>
-          <button
-            onClick={syncToServerPlayback}
-            className="bg-blue-500/20 hover:bg-blue-500/30 p-2 rounded-full transition border border-blue-500/30"
-            title="Sync to room playback"
-          >
-            <RefreshCw size={16} />
-          </button>
-          <button
-            onClick={skipToNext}
-            className="bg-white/10 hover:bg-white/20 p-3 rounded-full transition"
-            title="Skip to next song"
-          >
-            <SkipForward size={20} />
-          </button>
         </div>
       )}
 
