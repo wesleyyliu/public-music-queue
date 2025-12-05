@@ -178,4 +178,125 @@ router.get('/skip/status', async (req, res) => {
   }
 });
 
+// ============ QUEUE ITEM VOTING ============
+
+// Vote on a queue item (upvote or downvote)
+router.post('/queue/:queueItemId', requireAuth, async (req, res) => {
+  try {
+    const queueItemId = parseInt(req.params.queueItemId);
+    const { room = 'general', voteType } = req.body;
+    const userId = req.session.userId;
+
+    if (!voteType || !['upvote', 'downvote'].includes(voteType)) {
+      return res.status(400).json({ error: 'Invalid vote type. Must be "upvote" or "downvote"' });
+    }
+
+    // Add or update vote
+    const voteStats = await voteService.addQueueVote(userId, room, queueItemId, voteType);
+
+    // Broadcast vote update to all users in the room
+    const io = getIO();
+    io.to(room).emit('queue:vote:updated', {
+      queueItemId,
+      ...voteStats
+    });
+
+    res.json({
+      success: true,
+      queueItemId,
+      voteType,
+      ...voteStats
+    });
+  } catch (error) {
+    console.error('Queue vote error:', error);
+    res.status(500).json({ error: 'Failed to register vote', message: error.message });
+  }
+});
+
+// Remove vote from a queue item
+router.delete('/queue/:queueItemId', requireAuth, async (req, res) => {
+  try {
+    const queueItemId = parseInt(req.params.queueItemId);
+    const { room = 'general' } = req.body;
+    const userId = req.session.userId;
+
+    // Remove vote
+    const voteStats = await voteService.removeQueueVote(userId, room, queueItemId);
+
+    // Broadcast vote update
+    const io = getIO();
+    io.to(room).emit('queue:vote:updated', {
+      queueItemId,
+      ...voteStats
+    });
+
+    res.json({
+      success: true,
+      queueItemId,
+      voteType: null,
+      ...voteStats
+    });
+  } catch (error) {
+    console.error('Remove queue vote error:', error);
+    res.status(500).json({ error: 'Failed to remove vote', message: error.message });
+  }
+});
+
+// Get all queue votes for a room
+router.get('/queue/all', async (req, res) => {
+  try {
+    const { room = 'general' } = req.query;
+    const userId = req.session.userId;
+
+    // Get all vote stats
+    const allVotes = await voteService.getAllQueueVotesInRoom(room);
+
+    // If user is authenticated, get their votes too
+    let userVotes = {};
+    if (userId) {
+      for (const vote of allVotes) {
+        const userVote = await voteService.getUserQueueVote(userId, room, vote.queueItemId);
+        if (userVote) {
+          userVotes[vote.queueItemId] = userVote;
+        }
+      }
+    }
+
+    res.json({
+      votes: allVotes,
+      userVotes
+    });
+  } catch (error) {
+    console.error('Get queue votes error:', error);
+    res.status(500).json({ error: 'Failed to fetch votes', message: error.message });
+  }
+});
+
+// Get user's vote for a specific queue item
+router.get('/queue/:queueItemId', async (req, res) => {
+  try {
+    const queueItemId = parseInt(req.params.queueItemId);
+    const { room = 'general' } = req.query;
+    const userId = req.session.userId;
+
+    // Get vote stats
+    const voteStats = await voteService.getQueueVoteStats(room, queueItemId);
+
+    // Get user's vote if authenticated
+    let userVote = null;
+    if (userId) {
+      userVote = await voteService.getUserQueueVote(userId, room, queueItemId);
+    }
+
+    res.json({
+      queueItemId,
+      ...voteStats,
+      userVote
+    });
+  } catch (error) {
+    console.error('Get queue item vote error:', error);
+    res.status(500).json({ error: 'Failed to fetch vote', message: error.message });
+  }
+});
+
 module.exports = router;

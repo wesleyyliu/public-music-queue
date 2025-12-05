@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Users, Pause, Play, X, RefreshCw, ThumbsDown } from "lucide-react";
+import { Users, Pause, Play, RefreshCw, SkipForward, ThumbsUp, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import RecordPlayer from "../assets/recordplayer.svg";
 
 function MusicPlayer({
@@ -8,7 +9,6 @@ function MusicPlayer({
   userCount,
   queue,
   currentRoom,
-  onRemoveSong,
   onShowToast,
 }) {
   const [player, setPlayer] = useState(null);
@@ -21,6 +21,8 @@ function MusicPlayer({
   const [skipVoteCount, setSkipVoteCount] = useState(0);
   const [hasVotedToSkip, setHasVotedToSkip] = useState(false);
   const [skipVotePercentage, setSkipVotePercentage] = useState(0);
+  const [queueVotes, setQueueVotes] = useState({});
+  const [recentlyReordered, setRecentlyReordered] = useState(false);
 
   const isAuthenticated = !!user;
 
@@ -105,10 +107,41 @@ function MusicPlayer({
       }
     });
 
+    socket.on("queue:vote:updated", (voteData) => {
+      console.log("Received queue vote update:", voteData);
+      setQueueVotes(prev => ({
+        ...prev,
+        [voteData.queueItemId]: {
+          upvotes: voteData.upvotes,
+          downvotes: voteData.downvotes,
+          score: voteData.score
+        }
+      }));
+    });
+
+    socket.on("queue:reordered", (data) => {
+      console.log("Queue reordered:", data);
+      if (data.removed && data.removed.length > 0) {
+        if (onShowToast) {
+          data.removed.forEach(song => {
+            onShowToast(`"${song.title}" removed due to downvotes`, "warning");
+          });
+        }
+      }
+
+      // Show position indicators for 5 seconds
+      setRecentlyReordered(true);
+      setTimeout(() => {
+        setRecentlyReordered(false);
+      }, 5000);
+    });
+
     return () => {
       socket.off("playback:state");
       socket.off("vote:updated");
       socket.off("song:skipped");
+      socket.off("queue:vote:updated");
+      socket.off("queue:reordered");
     };
   }, [socket]);
 
@@ -278,6 +311,102 @@ function MusicPlayer({
     fetchSkipVoteStatus();
   }, [serverPlaybackState?.currentSong, currentRoom, isAuthenticated]);
 
+  // Fetch queue votes when queue changes
+  useEffect(() => {
+    if (!queue || queue.length === 0) return;
+
+    const fetchQueueVotes = async () => {
+      try {
+        const response = await fetch(
+          `http://127.0.0.1:3001/api/vote/queue/all?room=${currentRoom}`,
+          { credentials: "include" }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const votesMap = {};
+          data.votes.forEach(vote => {
+            votesMap[vote.queueItemId] = {
+              upvotes: vote.upvotes,
+              downvotes: vote.downvotes,
+              score: vote.score,
+              userVote: data.userVotes[vote.queueItemId] || null
+            };
+          });
+          setQueueVotes(votesMap);
+        }
+      } catch (error) {
+        console.error("Error fetching queue votes:", error);
+      }
+    };
+
+    fetchQueueVotes();
+  }, [queue, currentRoom]);
+
+  const handleQueueVote = async (queueItemId, voteType) => {
+    if (!isAuthenticated) return;
+
+    try {
+      const currentVote = queueVotes[queueItemId]?.userVote;
+
+      // If clicking the same vote type, remove the vote
+      if (currentVote === voteType) {
+        const response = await fetch(`http://127.0.0.1:3001/api/vote/queue/${queueItemId}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ room: currentRoom }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setQueueVotes(prev => ({
+            ...prev,
+            [queueItemId]: {
+              upvotes: data.upvotes,
+              downvotes: data.downvotes,
+              score: data.score,
+              userVote: null
+            }
+          }));
+        }
+      } else {
+        // Add or change vote
+        const response = await fetch(`http://127.0.0.1:3001/api/vote/queue/${queueItemId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ room: currentRoom, voteType }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setQueueVotes(prev => ({
+            ...prev,
+            [queueItemId]: {
+              upvotes: data.upvotes,
+              downvotes: data.downvotes,
+              score: data.score,
+              userVote: voteType
+            }
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Error voting on queue item:", error);
+    }
+  };
+
+  const getPositionIndicator = (song) => {
+    if (!song.positionChange || song.positionChange === 0) {
+      return <Minus size={14} className="text-gray-500" />;
+    } else if (song.positionChange > 0) {
+      return <TrendingUp size={14} className="text-green-400" />;
+    } else {
+      return <TrendingDown size={14} className="text-red-400" />;
+    }
+  };
+
   return (
     <div className="glass-background rounded-lg p-4 w-96 shadow-xl">
       {/* Header */}
@@ -353,7 +482,7 @@ function MusicPlayer({
                   className="transition hover:scale-110"
                   title={hasVotedToSkip ? "Remove skip vote" : "Vote to skip"}
                 >
-                  <ThumbsDown size={18} className={hasVotedToSkip ? "text-red-400" : "text-gray-400"} />
+                  <SkipForward size={18} className={hasVotedToSkip ? "text-red-400" : "text-gray-400"} />
                 </button>
                 <div className="text-xs text-gray-400 mt-0.5">
                   {skipVoteCount}
@@ -373,33 +502,102 @@ function MusicPlayer({
         <div className="text-sm font-medium text-gray-300 mb-2">
           Queue ({queue.length})
         </div>
-        <div className="space-y-2 max-h-64 overflow-y-auto">
+        <div className="max-h-64 overflow-y-auto">
           {queue.length === 0 ? (
             <div className="text-center text-gray-400 text-sm py-4">
               Queue is empty
             </div>
           ) : (
-            queue.map((song, index) => (
-              <div
-                key={song.id}
-                className="flex items-center justify-between bg-black/20 rounded-md p-2 hover:bg-black/30 transition"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-white truncate">
-                    {song.title}
+            <AnimatePresence initial={false}>
+              {queue.map((song) => {
+                const votes = queueVotes[song.id] || { upvotes: song.upvotes || 0, downvotes: song.downvotes || 0, score: song.score || 0, userVote: null };
+                const userVote = votes.userVote;
+
+                return (
+                  <motion.div
+                    key={song.id}
+                    layout
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -100 }}
+                    transition={{
+                      layout: { duration: 1, ease: "easeInOut" },
+                      opacity: { duration: 0.3 },
+                      y: { duration: 0.3 }
+                    }}
+                    className="glass-background rounded-md p-3 hover:bg-white/10 transition-all mb-2 flex items-center gap-3"
+                  >
+                  {/* Album Art */}
+                  {song.albumArt && (
+                    <img
+                      src={song.albumArt}
+                      alt={song.album}
+                      className="w-12 h-12 rounded object-cover flex-shrink-0"
+                    />
+                  )}
+
+                  {/* Song info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-white truncate font-medium">
+                      {song.title}
+                    </div>
+                    <div className="text-xs text-gray-400 truncate">
+                      {song.artist}
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-400 truncate">
-                    {song.artist}
-                  </div>
-                </div>
-                <button
-                  onClick={() => onRemoveSong(song.id)}
-                  className="ml-2 text-gray-400 hover:text-red-400 transition"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            ))
+
+                  {/* Voting buttons */}
+                  {isAuthenticated && (
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Position change indicator - only show if recently reordered */}
+                      {recentlyReordered && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          className="flex-shrink-0"
+                        >
+                          {getPositionIndicator(song)}
+                        </motion.div>
+                      )}
+
+                      <div className="flex flex-col items-center">
+                        <button
+                          onClick={() => handleQueueVote(song.id, 'upvote')}
+                          className="transition hover:scale-110"
+                          title="Upvote"
+                        >
+                          <ThumbsUp
+                            size={16}
+                            className={userVote === 'upvote' ? "text-green-400" : "text-gray-400"}
+                          />
+                        </button>
+                        <span className="text-xs text-gray-400 mt-0.5">
+                          {votes.upvotes}
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-center">
+                        <button
+                          onClick={() => handleQueueVote(song.id, 'downvote')}
+                          className="transition hover:scale-110"
+                          title="Downvote"
+                        >
+                          <SkipForward
+                            size={16}
+                            className={userVote === 'downvote' ? "text-red-400" : "text-gray-400"}
+                          />
+                        </button>
+                        <span className="text-xs text-gray-400 mt-0.5">
+                          {votes.downvotes}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                </motion.div>
+              );
+            })}
+            </AnimatePresence>
           )}
         </div>
       </div>
