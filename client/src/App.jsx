@@ -33,7 +33,8 @@ function App() {
     fetchUser();
 
     // Connect to server
-    const newSocket = io("http://127.0.0.1:3001");
+    const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:3001";
+    const newSocket = io(apiUrl);
 
     newSocket.on("connect", () => {
       console.log("Connected to server!");
