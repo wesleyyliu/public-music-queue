@@ -12,6 +12,7 @@ function SearchSongs({ user, currentRoom = 'general', onCooldownChange }) {
   const debounceTimer = useRef(null);
   const cooldownInterval = useRef(null);
 
+  const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === 'production' ? '' : 'http://127.0.0.1:3001');
   const isAuthenticated = !!user;
 
   // Notify parent of cooldown changes
@@ -28,7 +29,7 @@ function SearchSongs({ user, currentRoom = 'general', onCooldownChange }) {
 
       try {
         const response = await fetch(
-          `http://127.0.0.1:3001/api/queue/cooldown?room=${currentRoom}`,
+          `${API_URL}/api/queue/cooldown?room=${currentRoom}`,
           { credentials: "include" }
         );
 
@@ -105,7 +106,7 @@ function SearchSongs({ user, currentRoom = 'general', onCooldownChange }) {
 
     try {
       const response = await fetch(
-        `http://127.0.0.1:3001/api/spotify/search?q=${encodeURIComponent(
+        `${API_URL}/api/spotify/search?q=${encodeURIComponent(
           query
         )}&limit=10`,
         { credentials: "include" }
@@ -148,7 +149,7 @@ function SearchSongs({ user, currentRoom = 'general', onCooldownChange }) {
     }
 
     try {
-      const response = await fetch("http://127.0.0.1:3001/api/queue/add", {
+      const response = await fetch(`${API_URL}/api/queue/add`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
