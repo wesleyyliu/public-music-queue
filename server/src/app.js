@@ -23,11 +23,11 @@ app.use(session({
     createTableIfMissing: true
   }),
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-this-in-production',
-  resave: false,
+  resave: true, // Force session to be saved back to store
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production', // true in production (requires HTTPS)
-    httpOnly: true, // prevents JavaScript access to cookie
+    httpOnly: false, // TEMPORARY: Testing cookie visibility
     sameSite: 'lax', // same domain, so lax is fine
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
