@@ -6,9 +6,10 @@ const { pool } = require('./config/database');
 
 const app = express();
 
-// CORS configuration - must allow credentials for session cookies
+// CORS configuration - allow credentials for session cookies
+// In production, frontend is served from same domain so CORS is permissive
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://127.0.0.1:5173',
+  origin: process.env.NODE_ENV === 'production' ? true : (process.env.CLIENT_URL || 'http://127.0.0.1:5173'),
   credentials: true
 }));
 
