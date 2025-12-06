@@ -32,7 +32,7 @@ const callback = async (req, res) => {
   const { code } = req.query;
 
   if (!code) {
-    return res.redirect(`${CLIENT_URL}?error=no_code`);
+    return res.redirect('/?error=no_code');
   }
 
   try {
@@ -53,7 +53,7 @@ const callback = async (req, res) => {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
       console.error('Token exchange error:', tokenResponse.status, errorText);
-      return res.redirect(`${CLIENT_URL}?error=token_exchange_failed`);
+      return res.redirect('/?error=token_exchange_failed');
     }
 
     const tokenData = await tokenResponse.json();
@@ -70,7 +70,7 @@ const callback = async (req, res) => {
     if (!userResponse.ok) {
       const errorText = await userResponse.text();
       console.error('User fetch error:', userResponse.status, errorText);
-      return res.redirect(`${CLIENT_URL}?error=user_fetch_failed`);
+      return res.redirect('/?error=user_fetch_failed');
     }
 
     const spotifyUser = await userResponse.json();
@@ -89,36 +89,25 @@ const callback = async (req, res) => {
     req.session.userId = user.spotify_id;
     req.session.displayName = user.display_name;
 
-    console.log('Session data before save:', req.session.userId, req.session.displayName);
+    console.log('Session data set:', req.session.userId, req.session.displayName);
     console.log('Session ID:', req.sessionID);
 
-    // Explicitly save the session before redirecting
+    // Save and wait for the session to be persisted before responding
     req.session.save((err) => {
       if (err) {
         console.error('Session save error:', err);
-        return res.redirect(`${CLIENT_URL}?error=session_save_failed`);
+        return res.redirect('/?error=session_save_failed');
       }
-      console.log('Session saved successfully');
-      console.log('Cookie will be set for session:', req.sessionID);
 
-      // Send HTML with auto-redirect to ensure cookie is set
-      res.send(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Redirecting...</title>
-          </head>
-          <body>
-            <p>Login successful! Redirecting...</p>
-            <script>window.location.href = '/';</script>
-          </body>
-        </html>
-      `);
+      console.log('Session saved successfully, cookie should be set');
+
+      // Redirect to home page (relative path keeps us on same domain)
+      res.redirect('/');
     });
 
   } catch (error) {
     console.error('Auth callback error:', error);
-    res.redirect(`${CLIENT_URL}?error=auth_failed`);
+    res.redirect('/?error=auth_failed');
   }
 };
 
