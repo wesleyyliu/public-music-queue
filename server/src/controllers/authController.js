@@ -98,8 +98,22 @@ const callback = async (req, res) => {
         console.error('Session save error:', err);
         return res.redirect(`${CLIENT_URL}?error=session_save_failed`);
       }
-      console.log('Session saved successfully, redirecting to:', CLIENT_URL);
-      res.redirect(CLIENT_URL);
+      console.log('Session saved successfully');
+      console.log('Cookie will be set for session:', req.sessionID);
+
+      // Send HTML with auto-redirect to ensure cookie is set
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Redirecting...</title>
+          </head>
+          <body>
+            <p>Login successful! Redirecting...</p>
+            <script>window.location.href = '/';</script>
+          </body>
+        </html>
+      `);
     });
 
   } catch (error) {
