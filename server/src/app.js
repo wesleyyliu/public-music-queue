@@ -27,9 +27,8 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production', // true in production (requires HTTPS)
     httpOnly: true, // prevents JavaScript access to cookie
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' required for cross-site cookies in production
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : undefined // Share cookie across subdomains
+    sameSite: 'lax', // same domain, so lax is fine
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
 
@@ -38,5 +37,15 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api', require('./routes'));
+
+// Serve static files in production
+if (process.env.NODE_ENV === 'production') {
+  const path = require('path');
+  app.use(express.static(path.join(__dirname, '../../client/dist')));
+
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../../client/dist/index.html'));
+  });
+}
 
 module.exports = app;
