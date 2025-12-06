@@ -123,7 +123,8 @@ function MusicPlayer({
         [voteData.queueItemId]: {
           upvotes: voteData.upvotes,
           downvotes: voteData.downvotes,
-          score: voteData.score
+          score: voteData.score,
+          userVote: prev[voteData.queueItemId]?.userVote || null // Preserve user's vote
         }
       }));
     });

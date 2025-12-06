@@ -107,13 +107,17 @@ class QueueReorderService {
         const score = upvotes - downvotes;
         const currentPosition = row.position || index + 1;
 
+        // Remove if: downvotes > 20% of users AND more downvotes than upvotes
+        const meetsUserThreshold = userCount > 0 && downvotes > userCount * this.REMOVAL_THRESHOLD;
+        const hasMoreDownvotesThanUpvotes = downvotes > upvotes;
+
         return {
           ...row,
           upvotes,
           downvotes,
           score,
           currentPosition,
-          shouldRemove: userCount > 0 && downvotes > userCount * this.REMOVAL_THRESHOLD
+          shouldRemove: meetsUserThreshold && hasMoreDownvotesThanUpvotes
         };
       });
 
