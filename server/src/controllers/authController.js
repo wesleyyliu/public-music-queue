@@ -89,12 +89,18 @@ const callback = async (req, res) => {
     req.session.userId = user.spotify_id;
     req.session.displayName = user.display_name;
 
-    console.log('Session saved:', req.session.userId, req.session.displayName);
+    console.log('Session data before save:', req.session.userId, req.session.displayName);
     console.log('Session ID:', req.sessionID);
-    console.log('Redirecting to:', CLIENT_URL);
 
-    // Redirect back to client - no sensitive data in URL
-    res.redirect(CLIENT_URL);
+    // Explicitly save the session before redirecting
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.redirect(`${CLIENT_URL}?error=session_save_failed`);
+      }
+      console.log('Session saved successfully, redirecting to:', CLIENT_URL);
+      res.redirect(CLIENT_URL);
+    });
 
   } catch (error) {
     console.error('Auth callback error:', error);
