@@ -27,7 +27,7 @@ function MusicPlayer({
   const [duration, setDuration] = useState(0);
 
   const isAuthenticated = !!user;
-  const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:3001";
+  const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === 'production' ? '' : 'http://127.0.0.1:3001');
 
   // Sync to server playback function
   const syncToServerPlayback = async () => {
