@@ -279,7 +279,7 @@ function MusicPlayer({
 
     try {
       const method = hasVotedToSkip ? "DELETE" : "POST";
-      const response = await fetch("http://127.0.0.1:3001/api/vote/skip", {
+      const response = await fetch(`${API_URL}/api/vote/skip`, {
         method,
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -304,7 +304,7 @@ function MusicPlayer({
     const fetchSkipVoteStatus = async () => {
       try {
         const response = await fetch(
-          `http://127.0.0.1:3001/api/vote/skip/status?room=${currentRoom}`,
+          `${API_URL}/api/vote/skip/status?room=${currentRoom}`,
           { credentials: "include" }
         );
 
@@ -344,7 +344,7 @@ function MusicPlayer({
     const fetchQueueVotes = async () => {
       try {
         const response = await fetch(
-          `http://127.0.0.1:3001/api/vote/queue/all?room=${currentRoom}`,
+          `${API_URL}/api/vote/queue/all?room=${currentRoom}`,
           { credentials: "include" }
         );
 
@@ -377,7 +377,7 @@ function MusicPlayer({
 
       // If clicking the same vote type, remove the vote
       if (currentVote === voteType) {
-        const response = await fetch(`http://127.0.0.1:3001/api/vote/queue/${queueItemId}`, {
+        const response = await fetch(`${API_URL}/api/vote/queue/${queueItemId}`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -398,7 +398,7 @@ function MusicPlayer({
         }
       } else {
         // Add or change vote
-        const response = await fetch(`http://127.0.0.1:3001/api/vote/queue/${queueItemId}`, {
+        const response = await fetch(`${API_URL}/api/vote/queue/${queueItemId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
