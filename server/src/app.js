@@ -43,7 +43,8 @@ if (process.env.NODE_ENV === 'production') {
   const path = require('path');
   app.use(express.static(path.join(__dirname, '../../client/dist')));
 
-  app.get('*', (req, res) => {
+  // Catch-all route for React Router (must be last)
+  app.get('/*', (req, res) => {
     res.sendFile(path.join(__dirname, '../../client/dist/index.html'));
   });
 }
