@@ -1,11 +1,11 @@
 services:
-  # Backend API Server
+  # Full-stack app (backend + frontend)
   - type: web
-    name: qed-up-api
+    name: qed-up
     runtime: node
     region: oregon
     plan: free
-    buildCommand: cd server && npm install
+    buildCommand: cd client && npm install && npm run build && cd ../server && npm install
     startCommand: cd server && npm start
     envVars:
       - key: NODE_ENV
@@ -17,29 +17,16 @@ services:
           name: qed-up-db
           property: connectionString
       - key: CLIENT_URL
-        sync: false
+        value: https://qed-up.onrender.com
       - key: SPOTIFY_CLIENT_ID
         sync: false
       - key: SPOTIFY_CLIENT_SECRET
         sync: false
       - key: SPOTIFY_REDIRECT_URI
-        sync: false
+        value: https://qed-up.onrender.com/api/auth/callback
       - key: SESSION_SECRET
         generateValue: true
 
-  # Frontend Static Site
-  - type: web
-    name: qed-up
-    runtime: static
-    buildCommand: cd client && npm install && npm run build
-    staticPublishPath: ./client/dist
-    envVars:
-      - key: VITE_API_URL
-        sync: false
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
 
 # PostgreSQL Database
 databases:
