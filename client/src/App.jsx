@@ -13,8 +13,8 @@ function App() {
   const [currentRoom, setCurrentRoom] = useState('general');
   const [toast, setToast] = useState(null);
 
-  // Get API URL from environment variable
-  const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:3001";
+  // Get API URL - use relative path in production (same domain), localhost in dev
+  const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === 'production' ? '' : 'http://127.0.0.1:3001');
 
   useEffect(() => {
     // Check for session and fetch user info
