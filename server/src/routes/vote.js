@@ -42,7 +42,7 @@ router.post('/skip', requireAuth, async (req, res) => {
     console.log(`[${room}] Vote stats:`, voteStats);
 
     // Check if threshold reached (50% of users)
-    const SKIP_THRESHOLD = 0.5;
+    const SKIP_THRESHOLD = 0.2;
     const hasReachedThreshold = voteService.checkThreshold(
       voteStats.voteCount,
       userCount,
